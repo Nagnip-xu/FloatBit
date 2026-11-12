@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloatBit · 实时加密货币价格悬浮窗</title>
+  <meta name="description" content="FloatBit 是一款简约优雅的桌面加密货币行情悬浮窗，实时显示 BTC、ETH 等价格与走势，始终置顶、不挡视线。数据来自币安公共行情接口。" />
+  <link rel="canonical" href="https://nagnip-xu.github.io/FloatBit/" />
+  <link rel="icon" href="icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 背景装饰 -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- 导航 -->
+  <header class="nav" id="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="#top">
+        <span class="logo">◈</span>
+        <span class="brand-name">FloatBit</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">功能</a>
+        <a href="#preview">界面</a>
+        <a href="#mobile">手机版</a>
+        <a href="#how">使用</a>
+        <a href="#download" class="btn btn-sm">免费下载</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 首屏 -->
+  <section class="hero" id="top">
+    <div class="container hero-inner">
+      <div class="hero-text reveal">
+        <div class="badge"><span class="pulse"></span> 数据实时来自币安 · 无需密钥</div>
+        <h1>盯盘，<span class="grad">不挡视线</span></h1>
+        <p class="lead">
+          FloatBit 是一款简约优雅的桌面加密货币行情悬浮窗。
+          BTC、ETH 等价格实时更新，始终浮在屏幕一角，配走势小图，一眼掌握涨跌。
+        </p>
+        <div class="hero-actions">
+          <a href="FloatBit-Setup-1.0.0.exe" download class="btn btn-lg">
+            <span class="btn-ico">⬇</span> 免费下载 (Windows)
+          </a>
+          <a href="#preview" class="btn btn-ghost btn-lg">预览界面</a>
+        </div>
+        <div class="hero-meta">
+          <span><b>3597+</b> 交易对</span>
+          <span><b>实时</b> 推送</span>
+          <span><b>0</b> 密钥</span>
+          <span><b>明 / 暗</b> 双主题</span>
+        </div>
+      </div>
+
+      <!-- 悬浮窗预览 (实时数据) -->
+      <div class="hero-mock reveal">
+        <div class="mock-card" id="live-card">
+          <div class="mock-top">
+            <span class="mock-brand"><span class="logo">◈</span> FloatBit</span>
+            <span class="mock-btns">⚙ &nbsp;—&nbsp; ✕</span>
+          </div>
+          <div class="mock-list" id="live-list">
+            <div class="mock-loading">连接币安行情中…</div>
+          </div>
+          <div class="mock-foot"><span class="dot"></span> <span id="live-time">--:--:--</span> · LIVE</div>
+        </div>
+        <div class="mock-reflection"></div>
+      </div>
+    </div>
+
+    <!-- 实时行情滚动条 -->
+    <div class="ticker-tape" id="ticker-tape">
+      <div class="tape-track" id="tape-track"></div>
+    </div>
+  </section>
+
+  <!-- 功能 -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="eyebrow reveal">FEATURES</div>
+      <h2 class="section-title reveal">为盯盘而生的小工具</h2>
+      <p class="section-sub reveal">该有的都有，多余的都没有。</p>
+
+      <div class="bento" id="bento">
+        <!-- 大格: 悬浮置顶 + 演示 -->
+        <article class="bento-card b-hero reveal">
+          <div class="bento-body">
+            <div class="f-badge">🪟</div>
+            <h3>悬浮置顶，不挡视线</h3>
+            <p>无边框半透明窗口，始终浮在最上层，可自由拖动并记忆位置。盯盘的同时，工作流不被打断。</p>
+          </div>
+          <div class="demo-stack">
+            <div class="demo-win demo-win-1">⬛ 你的工作窗口</div>
+            <div class="demo-win demo-win-2">📄 文档 / 代码</div>
+            <div class="demo-float">
+              <span class="df-top">◈ FloatBit</span>
+              <span class="df-row"><b>BTC</b> <i class="up">64,193</i></span>
+              <span class="df-row"><b>ETH</b> <i class="up">1,679</i></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- 中格: 实时价格 + 跳动数字 -->
+        <article class="bento-card b-live reveal">
+          <div class="f-badge">⚡</div>
+          <h3>实时价格</h3>
+          <p>应用通过 WebSocket 接收实时行情，价格变动即时高亮。</p>
+          <div class="live-num">
+            <span class="ln-price" id="bento-price">64,193.58</span>
+            <span class="ln-chg up" id="bento-chg">+0.50%</span>
+          </div>
+        </article>
+
+        <!-- 小格: 走势小图 -->
+        <article class="bento-card b-spark reveal">
+          <div class="f-badge">📈</div>
+          <h3>走势小图</h3>
+          <p>迷你 K 线，颜色跟随当日涨跌。</p>
+          <svg class="bento-spark" viewBox="0 0 120 36" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="bsg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--up)" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="var(--up)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon points="2,30 14,26 26,28 38,18 50,21 62,12 74,15 86,8 98,11 118,4 118,36 2,36" fill="url(#bsg)"/>
+            <polyline points="2,30 14,26 26,28 38,18 50,21 62,12 74,15 86,8 98,11 118,4" fill="none" stroke="var(--up)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </article>
+
+        <!-- 小格: 海量币种 -->
+        <article class="bento-card b-coins reveal">
+          <div class="f-badge">🔍</div>
+          <h3>海量币种</h3>
+          <p>币安全部交易对随你搜，热门一键添加。</p>
+          <div class="coin-chips">
+            <span>BTC</span><span>ETH</span><span>SOL</span><span>XRP</span>
+            <span>DOGE</span><span>+3592</span>
+          </div>
+        </article>
+
+        <!-- 中格: 主题与配色 -->
+        <article class="bento-card b-theme reveal">
+          <div class="f-badge">🎨</div>
+          <h3>主题与配色</h3>
+          <p>明暗主题一键切换；绿涨红跌 / 红涨绿跌随心选。</p>
+          <div class="theme-demo">
+            <span class="td-dark">暗色</span>
+            <span class="td-light">亮色</span>
+            <span class="td-g">🟢涨</span>
+            <span class="td-r">🔴涨</span>
+          </div>
+        </article>
+
+        <!-- 小格: 安全无密钥 -->
+        <article class="bento-card b-safe reveal">
+          <div class="f-badge">🔒</div>
+          <h3>安全无密钥</h3>
+          <p>数据来自币安公共接口，不读取任何 API 密钥。</p>
+          <div class="safe-tag">🔑 0 密钥</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 界面预览 -->
+  <section class="section section-alt" id="preview">
+    <div class="container">
+      <div class="eyebrow reveal">INTERFACE</div>
+      <h2 class="section-title reveal">简约，但不简单</h2>
+      <p class="section-sub reveal">主面板负责管理与设置，悬浮窗专注实时展示，半透明玻璃质感融入桌面。</p>
+
+      <div class="shots">
+        <figure class="shot reveal">
+          <div class="shot-img"><img src="shots/float-light.png" alt="FloatBit 悬浮窗（叠在桌面上）" onerror="this.closest('figure').classList.add('noimg')" /></div>
+          <div class="shot-fallback">悬浮窗</div>
+          <figcaption>悬浮窗 · 半透明置顶</figcaption>
+        </figure>
+        <figure class="shot shot-main reveal">
+          <div class="shot-img"><img src="shots/panel-light.png" alt="FloatBit 主面板" onerror="this.closest('figure').classList.add('noimg')" /></div>
+          <div class="shot-fallback">主面板</div>
+          <figcaption>主面板 · 自选 / 搜索 / 设置</figcaption>
+        </figure>
+        <figure class="shot reveal">
+          <div class="shot-img"><img src="shots/float-dark.png" alt="FloatBit 悬浮窗（走势小图）" onerror="this.closest('figure').classList.add('noimg')" /></div>
+          <div class="shot-fallback">悬浮窗</div>
+          <figcaption>悬浮窗 · 走势小图</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 多端 / 手机版 -->
+  <section class="section" id="mobile">
+    <div class="container">
+      <div class="eyebrow reveal">MOBILE</div>
+      <h2 class="section-title reveal">手机也能盯盘</h2>
+      <p class="section-sub reveal">FloatBit 安卓版，把行情悬浮窗带到手机桌面。</p>
+
+      <div class="mobile-wrap">
+        <!-- 手机外框 + 实时数据 -->
+        <div class="phone reveal">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="m-top">
+              <span class="m-brand">◈ FloatBit</span>
+              <span class="m-sun">☀</span>
+            </div>
+            <div class="m-list" id="m-live-list">
+              <div class="mock-loading">连接币安行情中…</div>
+            </div>
+            <!-- 模拟悬浮胶囊 -->
+            <div class="m-pill">◈</div>
+          </div>
+        </div>
+
+        <!-- 文案 -->
+        <div class="mobile-text reveal">
+          <ul class="mobile-feats">
+            <li><b>🪟 桌面悬浮窗</b><span>浮在任意 App 之上，可拖动、缩小到单币、收缩为边缘半隐胶囊</span></li>
+            <li><b>⚡ WebSocket 实时</b><span>与桌面版同源，价格秒级跳动</span></li>
+            <li><b>📈 走势小图</b><span>每个币种迷你 K 线，红涨绿跌随心配色</span></li>
+            <li><b>🔍 搜索 / 热门 / 排序</b><span>币安全量交易对搜索，长按拖动排序</span></li>
+            <li><b>🌙 明暗双主题</b><span>跟手机一样护眼</span></li>
+          </ul>
+          <div class="mobile-note">
+            Android 7.0+ · Kotlin 原生开发<br>
+            <span class="dim">iOS 因系统限制不支持悬浮窗，暂仅提供安卓版</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 使用步骤 -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <div class="eyebrow reveal">GET STARTED</div>
+      <h2 class="section-title reveal">三步开始使用</h2>
+      <p class="section-sub reveal">下载、运行、盯盘，就这么简单。</p>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-no">01</div>
+          <h3>下载安装</h3>
+          <p>下载 Windows 安装包，双击安装，自动创建桌面与开始菜单快捷方式。</p>
+        </div>
+        <div class="step-line reveal"></div>
+        <div class="step reveal">
+          <div class="step-no">02</div>
+          <h3>添加币种</h3>
+          <p>打开主面板，搜索或从热门币种一键添加你关注的 BTC、ETH 等。</p>
+        </div>
+        <div class="step-line reveal"></div>
+        <div class="step reveal">
+          <div class="step-no">03</div>
+          <h3>悬浮盯盘</h3>
+          <p>悬浮窗浮在屏幕一角实时跳动，调整透明度与置顶，专注又不挡视线。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 下载 -->
+  <section class="section section-cta" id="download">
+    <div class="container cta-inner reveal">
+      <div class="cta-logo">◈</div>
+      <h2>立即开始使用 FloatBit</h2>
+      <p>桌面端 Windows 10 / 11 · 手机端 Android 7.0+ · 完全免费</p>
+      <div class="cta-btns">
+        <a href="FloatBit-Setup-1.0.0.exe" download class="btn btn-lg btn-glow">
+          <span class="btn-ico">⬇</span> 下载 Windows 版
+        </a>
+        <a href="FloatBit-Android.apk" download class="btn btn-lg btn-ghost">
+          <span class="btn-ico">🤖</span> 下载 Android 版
+        </a>
+      </div>
+      <p class="cta-note">Windows 1.0.0，约 75 MB · Android 1.0，约 6 MB，当前为 debug 构建 · <a href="SHA256SUMS.txt">SHA-256 校验值</a></p>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo"><span class="logo">◈</span> FloatBit</div>
+        <p class="footer-tag">实时加密货币价格悬浮窗</p>
+      </div>
+      <div class="footer-info">
+        <div class="footer-col">
+          <span class="footer-h">作者</span>
+          <a href="https://github.com/Nagnip-xu" target="_blank" rel="noopener">Nagnip-xu</a>
+        </div>
+        <div class="footer-col">
+          <span class="footer-h">源码</span>
+          <a href="https://github.com/Nagnip-xu/FloatBit" target="_blank" rel="noopener">GitHub 仓库</a>
+        </div>
+        <div class="footer-col">
+          <span class="footer-h">联系</span>
+          <a href="mailto:xu814667@gmail.com">xu814667@gmail.com</a>
+        </div>
+        <div class="footer-col">
+          <span class="footer-h">数据</span>
+          <a href="https://www.binance.com" target="_blank" rel="noopener">币安 Binance</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span>© 2026 Nagnip · FloatBit</span>
+      <span>价格数据仅供参考，不构成投资建议。加密资产价格波动较大，投资需谨慎。</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

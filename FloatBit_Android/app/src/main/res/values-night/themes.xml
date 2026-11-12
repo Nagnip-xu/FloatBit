@@ -1,0 +1,11 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 深色基础主题 (夜间) -->
+    <style name="Base.Theme.FloatBit_Android" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="colorPrimary">@color/accent</item>
+    </style>
+
+    <style name="Theme.FloatBit_Android" parent="Base.Theme.FloatBit_Android" />
+</resources>

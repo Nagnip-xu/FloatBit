@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloatBit</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+    html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ball {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, #1a1e28, #0d0f14);
+      border: 1px solid rgba(79, 209, 197, 0.45);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(79, 209, 197, 0.25);
+      color: #4fd1c5;
+      font-size: 22px;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.15s ease;
+    }
+    .ball:hover {
+      transform: scale(1.08);
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55), 0 0 24px rgba(79, 209, 197, 0.5);
+    }
+    .ball.dragging { transform: scale(1.04); cursor: grabbing; transition: none; }
+  </style>
+</head>
+<body>
+  <div class="ball" id="ball" title="单击展开 FloatBit · 按住拖动可移动">◈</div>
+  <script>
+    const ball = document.getElementById('ball');
+    let dragging = false, moved = false;
+    let lastX = 0, lastY = 0;
+
+    ball.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true; moved = false;
+      lastX = e.screenX; lastY = e.screenY;
+      ball.classList.add('dragging');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const dx = e.screenX - lastX;
+      const dy = e.screenY - lastY;
+      if (dx !== 0 || dy !== 0) {
+        if (Math.abs(e.screenX - lastX) > 2 || Math.abs(e.screenY - lastY) > 2) moved = true;
+        window.floatbit.miniMove(dx, dy);
+        lastX = e.screenX; lastY = e.screenY;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      ball.classList.remove('dragging');
+    });
+
+    // 单击(未拖动)展开
+    ball.addEventListener('click', () => {
+      if (!moved) window.floatbit.expand();
+    });
+  </script>
+</body>
+</html>

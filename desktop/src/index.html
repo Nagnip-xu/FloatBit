@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-color="green-up">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloatBit</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="card" id="card">
+    <!-- 顶部栏: 拖拽 + 操作 -->
+    <div class="titlebar" id="titlebar">
+      <div class="brand">
+        <span class="logo">◈</span>
+        <span class="brand-name">FloatBit</span>
+      </div>
+      <div class="actions">
+        <button class="btn-icon" id="btn-settings" title="主面板">⚙</button>
+        <button class="btn-icon" id="btn-hide" title="收为悬浮球">—</button>
+        <button class="btn-icon btn-close" id="btn-close" title="隐藏到托盘">✕</button>
+      </div>
+    </div>
+
+    <!-- 价格列表 -->
+    <div class="list" id="list">
+      <div class="loading">加载中…</div>
+    </div>
+
+    <!-- 底部状态 -->
+    <div class="footer">
+      <span id="status">●</span>
+      <span id="updated">--:--:--</span>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "name": "floatbit",
+  "version": "1.0.0",
+  "description": "FloatBit - 实时加密货币价格悬浮窗 (BTC / ETH 等)",
+  "main": "src/main.js",
+  "author": "Nagnip <xu814667@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "io.floatbit.app",
+    "productName": "FloatBit",
+    "copyright": "Copyright © 2026 Nagnip",
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FloatBit",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "language": "2052"
+    }
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  }
+}

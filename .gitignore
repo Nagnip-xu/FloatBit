@@ -1,0 +1,34 @@
+# Desktop dependencies and generated packages (keep desktop/build/make_icon.py).
+/desktop/node_modules/
+/desktop/dist/
+
+# Android build output, local configuration, and compiler caches.
+/FloatBit_Android/.gradle/
+/FloatBit_Android/.kotlin/
+/FloatBit_Android/build/
+/FloatBit_Android/app/build/
+/FloatBit_Android/.cxx/
+/FloatBit_Android/.externalNativeBuild/
+/FloatBit_Android/captures/
+/FloatBit_Android/local.properties
+
+# Local installer extraction; website distribution files remain available.
+/安装包/
+/清理报告.md
+
+# Local IDE state and private signing material.
+/FloatBit_Android/.idea/
+*.jks
+*.keystore
+*.p12
+.env
+.env.*
+!.env.example
+
+# Disposable Python and operating-system caches.
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+Thumbs.db
+Desktop.ini
