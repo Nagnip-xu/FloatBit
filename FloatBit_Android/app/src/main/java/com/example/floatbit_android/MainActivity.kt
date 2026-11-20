@@ -260,9 +260,8 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- 增删 ----------
     private fun addSymbol(raw: String) {
-        var s = raw.trim().uppercase()
+        val s = ContractMarket.normalize(raw)
         if (s.isEmpty()) return
-        if (!s.endsWith("USDT") && !s.endsWith("USDC") && !s.endsWith("USD")) s += "USDT"
         val current = adapter.currentSymbols().toMutableList()
         if (current.contains(s)) {
             Toast.makeText(this, "$s 已在列表中", Toast.LENGTH_SHORT).show()

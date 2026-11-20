@@ -97,6 +97,7 @@ async function saveSymbols(symbols) {
   renderHot();
   renderSearch(els.searchInput.value.trim());
   refreshKlines();
+  refreshPrices();
 }
 
 function hasSymbol(symbol) {

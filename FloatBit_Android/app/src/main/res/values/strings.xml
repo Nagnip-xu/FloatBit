@@ -1,10 +1,10 @@
 <resources>
     <string name="app_name">FloatBit</string>
     <string name="title">FloatBit</string>
-    <string name="subtitle">实时加密货币行情</string>
-    <string name="add_coin">添加币种</string>
+    <string name="subtitle">实时合约行情</string>
+    <string name="add_coin">添加合约</string>
     <string name="search">搜索</string>
-    <string name="search_hint">搜索币种，如 BTC、SOL、DOGE</string>
+    <string name="search_hint">搜索合约，如 MU、SNDK、SKHYNIX</string>
     <string name="toggle_color">涨跌配色</string>
     <string name="start_float">开启悬浮窗</string>
     <string name="stop_float">关闭悬浮窗</string>
