@@ -45,3 +45,9 @@
 正式替换下载文件前，应检查产物版本、SHA-256、Android 签名及 Windows 安装程序信息。CI 的临时 debug 签名不能作为长期升级签名使用；1.1.0 官网 APK 已在本机使用当前 debug keystore 重新签名，签名密钥未提交到仓库。
 
 原官网 1.0 APK 的证书与当前机器保留的 debug keystore 不一致，1.1.0 无法覆盖旧版安装。官网与 README 已说明先保存自选记录、卸载旧版后安装，卸载会清除旧应用的本地数据。
+
+## Android 1.1.1 发布
+
+Android 1.1.1（versionCode 3）由 [构建记录](https://github.com/Nagnip-xu/FloatBit/actions/runs/44679417945) 测试并生成，再使用本机保存的 1.1.0 签名重新签署。已验证包名、版本、APK ZIP 校验、V2/V3 签名及 SHA-256；证书 SHA-256 为 `49e8b4d3ffb101ef0782acaab81e6c37efd25ed8a01c0fa2d887c4721ae9a606`，与官网 1.1.0 完全一致，可直接覆盖安装并保留自选。
+
+官网下载链接增加 `?v=1.1.1`，避免浏览器继续使用缓存的旧 APK。Windows 安装包仍为 1.1.0。签名私钥未上传；后续发布应继续使用同一密钥，不直接分发每次 CI 临时生成的 debug 签名包。

@@ -16,6 +16,13 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 行情来自币安 USDⓈ-M 合约公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
 
+## Android 1.1.1 更新
+
+- 恢复旧版紧凑悬浮窗：去掉 280dp 固定宽度，币种栏恢复 40dp，长名称保持单行。
+- 修复普通网络下合约接口无法连接的问题：主域名不可达时，自动查询币安当前的官方 CDN 并尝试直连，全部仍为 USDⓈ-M 合约数据。
+- WebSocket 无法连接时每 5 秒获取合约行情，每个币种最多一个在途请求；切换自选或退出会取消旧请求。
+- 细分超时、域名、限流等提示，增加可选「网络」设置；默认自动连接，无需预先配置代理。
+
 ## 1.1.0 更新
 
 - 所有平台统一切换币安 **USDⓈ-M 合约**接口，搜索、价格、WebSocket 和 K 线均使用合约数据。
@@ -65,9 +72,9 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 | 平台 | 安装包 | 当前版本 | 大小与要求 |
 | --- | --- | --- | --- |
 | Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.1.0.exe) | 1.1.0 | 约 74.84 MiB；Windows 10 / 11，x64 |
-| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk) | 1.1.0（versionCode 2） | 约 6.10 MiB；Android 7.0 / API 24 及以上 |
+| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.1.1) | 1.1.1（versionCode 3） | 约 6.19 MiB；Android 7.0 / API 24 及以上 |
 
-Android 当前提供 **debug 构建**。1.1.0 与原官网 APK 的签名不同，旧版用户需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。桌面与手机端版本号分别维护。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
+Android 当前提供 **debug 构建**。1.1.1 沿用官网 1.1.0 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。桌面与手机端版本号分别维护。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
 
 **Windows 使用：**
 
@@ -82,6 +89,7 @@ Android 当前提供 **debug 构建**。1.1.0 与原官网 APK 的签名不同�
 2. 安装后打开 FloatBit，添加自选币种。
 3. 点击「开启悬浮窗」，按提示授予「显示在其他应用上层」权限，再返回应用开启。
 4. 按需授予通知权限；悬浮窗可以拖动、缩小并收起。
+5. 默认自动连接。若仍无法加载，先点击「刷新」；必要时通过「网络」使用已有 VPN 或自己的 HTTP 代理。
 
 目前没有提供 iOS、macOS 或 Linux 安装包。
 
@@ -169,7 +177,7 @@ python -m http.server 8000 --directory website
 ## 数据来源与常见问题
 
 - **数据来自哪里？** 价格主要来自币安合约公共 WebSocket；K 线、交易对等通过 REST 获取。接口说明见 [币安行情接口文档](docs/binance-api.md)。官网演示采用 REST 定时刷新。
-- **为什么看不到行情？** 请确认网络可以访问 `fapi.binance.com` 和 `fstream.binance.com`；受网络、接口限制或服务状态影响时，行情可能暂时不可用。
+- **必须开代理吗？旧版为什么可以直连？** 不强制。旧版使用 `.binance.vision` 现货域名，合约版使用的 `fapi.binance.com` / `fstream.binance.com` 在部分网络可达性不同。Android 1.1.1 会自动尝试官方 CDN 直连，WebSocket 不通时用合约 REST 轮询，代理是可选兜底。CDN、DNS 服务和运营商路由仍可能变化，不能保证所有地区和网络均可直连。详见 [安卓网络说明](docs/android-network.md)。
 - **安卓悬浮窗没有出现？** 确认已开启「显示在其他应用上层」权限；后台运行还可能受手机系统省电设置影响。
 - **为什么克隆后没有依赖或构建目录？** `node_modules/`、Gradle 缓存和编译输出由 `.gitignore` 排除，按上面的步骤重新安装或构建即可。
 - **需要账户或交易密钥吗？** 不需要。本项目展示公共行情，不提供下单、交易或资产托管功能。

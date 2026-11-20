@@ -33,7 +33,7 @@ FloatBit 1.1.0 起，Windows、Android、官网演示与共享模块统一使用
 wss://fstream.binance.com/market/stream?streams=muusdt@ticker/sndkusdt@ticker/skhynixusdt@ticker
 ```
 
-合约代码转小写，流之间用 `/` 分隔。消息包装为 `{ "stream": "...", "data": { ... } }`，`data.e == "24hrTicker"` 时读取 `s`（合约）、`c`（最新价）、`P`（24 小时涨跌幅）等字段。订阅变化会替换旧连接；连接失败会自动重连，安卓与桌面均在启动时请求 REST 快照；断线或 15 秒未收到所选合约推送时，以 REST 兜底。旧的 `/stream` 路径在本次实测中能握手却没有 ticker 推送，现已统一使用 `/market/stream`。
+合约代码转小写，流之间用 `/` 分隔。消息包装为 `{ "stream": "...", "data": { ... } }`，`data.e == "24hrTicker"` 时读取 `s`（合约）、`c`（最新价）、`P`（24 小时涨跌幅）等字段。订阅变化会替换旧连接；连接失败会自动重连，安卓与桌面均在启动时请求 REST 快照；桌面在断线或 15 秒未收到所选合约推送时以 REST 兜底。Android 1.1.1 在 WebSocket 断线时每 5 秒轮询，连接成功但 15 秒无行情时也获取 REST 快照。旧的 `/stream` 路径在本次实测中能握手却没有 ticker 推送，现已统一使用 `/market/stream`。
 
 ## 涨跌幅与使用限制
 
@@ -42,3 +42,11 @@ wss://fstream.binance.com/market/stream?streams=muusdt@ticker/sndkusdt@ticker/sk
 股票合约和代币化现货属于不同产品，价格与可交易时段也可能不同。列表、上市状态、价格和涨跌幅以实时合约接口为准。网络、区域限制或接口限流可能导致行情暂时无法显示。
 
 官方文档：[USDⓈ-M 合约市场数据](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information)。
+
+## Android 1.1.1 的直连备用通道
+
+Android 的合约列表、ticker 和 K 线统一使用 `ContractHttp`。主域名发生连接错误或 5xx 时，通过腾讯 DNSPod 的 HTTPS DNS 查询当前 `fapi.binance.com` CNAME，仅接受该名称对应的 `*.cloudfront.net` 分发；使用返回地址建立 HTTPS 连接，保留 `Host: fapi.binance.com`，保持正常证书校验。不会写死 CDN 地址，也不会请求现货行情。
+
+成功通道按 DNS TTL 短期缓存并优先复用；每次请求最多两次连接尝试。无效合约、限流与访问受限等 HTTP 4xx 直接报告，不轮换域名重复请求。DNS 服务只收到币安域名查询，不收到合约代码、价格查询或任何账户信息。
+
+这是对币安当前 CDN 配置的兼容，CDN 分发规则可能改变，不作为币安承诺的长期备用 API。若主接口和备用通道均不可达，用户可在「网络」中选择自己的 HTTP 代理；REST 和 WSS 使用同一配置。排查过程见 [安卓网络说明](android-network.md)。
