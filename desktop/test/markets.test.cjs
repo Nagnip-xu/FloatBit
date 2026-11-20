@@ -84,11 +84,11 @@ test('价格、日线与走势图均路由至合约接口，现货专有代码�
 test('WebSocket 订阅与改选只使用合约流，保留完整长代码', () => {
   const h = harness();
   h.subject.config.symbols = ['MUUSDT', 'SKHYNIXUSDT']; h.subject.connectWs();
-  assert.equal(h.sockets[0].url, 'wss://fstream.binance.com/stream?streams=muusdt@ticker/skhynixusdt@ticker');
+  assert.equal(h.sockets[0].url, 'wss://fstream.binance.com/market/stream?streams=muusdt@ticker/skhynixusdt@ticker');
   h.sockets[0].emit('message', Buffer.from(JSON.stringify({ data: { e: '24hrTicker', s: 'SKHYNIXUSDT', c: '830.91', P: '-2.435' } })));
   assert.equal(h.subject.tickerCache.SKHYNIXUSDT.last, 830.91);
   h.subject.config.symbols = ['SNDKUSDT']; h.subject.resubscribeWs();
   assert.equal(h.sockets[0].readyState, 3);
-  assert.equal(h.sockets[1].url, 'wss://fstream.binance.com/stream?streams=sndkusdt@ticker');
+  assert.equal(h.sockets[1].url, 'wss://fstream.binance.com/market/stream?streams=sndkusdt@ticker');
   assert.equal(h.subject.tickerCache.SKHYNIXUSDT, undefined);
 });

@@ -4,7 +4,7 @@
   else root.FloatBitMarkets = markets;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   const sources = {
-    futures: { label: '合约', rest: 'https://fapi.binance.com/fapi/v1', ws: 'wss://fstream.binance.com/stream' }
+    futures: { label: '合约', rest: 'https://fapi.binance.com/fapi/v1', ws: 'wss://fstream.binance.com/market/stream' }
   };
   const quotes = ['FDUSD', 'USDT', 'USDC', 'USD1', 'TUSD', 'BUSD', 'USDP', 'DAI', 'USD', 'BTC', 'ETH', 'BNB', 'EUR', 'TRY', 'BRL', 'ARS', 'PLN', 'ZAR', 'JPY', 'MXN'];
 

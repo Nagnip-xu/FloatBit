@@ -5,7 +5,7 @@ import java.util.Locale
 /** 全部行情统一使用币安 USDⓈ-M 合约市场。 */
 object ContractMarket {
     const val REST = "https://fapi.binance.com/fapi/v1"
-    const val WS = "wss://fstream.binance.com/stream"
+    const val WS = "wss://fstream.binance.com/market/stream"
     private val quotes = listOf("FDUSD", "USDT", "USDC", "USD1", "TUSD", "BUSD", "USD", "BTC", "ETH")
 
     fun normalize(keyword: String): String = keyword.trim().uppercase(Locale.ROOT)

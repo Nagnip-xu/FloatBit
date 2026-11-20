@@ -2,6 +2,7 @@ package com.example.floatbit_android
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -27,10 +28,13 @@ class MarketClient(
     private var generation = 0
     private var reconnecting = false
     private val received = HashSet<String>()
+    private val liveTimes = HashMap<String, Long>()
     private val poll = object : Runnable {
         override fun run() {
             if (stopped) return
-            if (!connected) snapshot(generation)
+            if (!connected || symbols.any { SystemClock.elapsedRealtime() - (liveTimes[it] ?: 0L) > 15_000 }) {
+                snapshot(generation)
+            }
             main.postDelayed(this, 15_000)
         }
     }
@@ -39,6 +43,7 @@ class MarketClient(
         stop()
         stopped = false
         received.clear()
+        liveTimes.clear()
         connect(generation)
         snapshot(generation)
         main.postDelayed(poll, 15_000)
@@ -61,6 +66,7 @@ class MarketClient(
     }
 
     private fun snapshot(gen: Int) {
+        val requestedAt = SystemClock.elapsedRealtime()
         symbols.forEach { symbol ->
             val request = Request.Builder().url("${ContractMarket.REST}/ticker/24hr?symbol=$symbol").build()
             client.newCall(request).enqueue(object : Callback {
@@ -79,16 +85,18 @@ class MarketClient(
                                 data.getString("priceChangePercent").toDouble())
                         }
                     } catch (_: Exception) { Ticker(symbol, Double.NaN, Double.NaN, "行情加载失败") }
-                    publish(ticker, gen, snapshot = true)
+                    publish(ticker, gen, snapshotAt = requestedAt)
                 }
             })
         }
     }
 
-    private fun publish(ticker: Ticker, gen: Int, snapshot: Boolean = false) {
+    private fun publish(ticker: Ticker, gen: Int, snapshotAt: Long? = null) {
         main.post {
             if (stopped || generation != gen || !symbols.contains(ticker.symbol)) return@post
-            if (ticker.symbol in received && (ticker.last.isNaN() || snapshot && connected)) return@post
+            if (ticker.last.isNaN() && ticker.symbol in received) return@post
+            if (snapshotAt != null && (liveTimes[ticker.symbol] ?: 0L) > snapshotAt) return@post
+            if (snapshotAt == null && !ticker.last.isNaN()) liveTimes[ticker.symbol] = SystemClock.elapsedRealtime()
             if (!ticker.last.isNaN()) received.add(ticker.symbol)
             onUpdate(ticker)
         }

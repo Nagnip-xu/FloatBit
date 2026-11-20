@@ -205,9 +205,12 @@ async function fetchTicker(symbol) {
 }
 
 async function fetchAll() {
+  const requestedAt = Date.now();
   const results = await Promise.all(config.symbols.map(fetchTicker));
   // 用 REST 结果填充实时缓存 (作为 WS 未就绪时的初值)
-  results.forEach((r) => { if (r.ok) tickerCache[r.symbol] = r; });
+  results.forEach((r) => {
+    if (config.symbols.includes(r.symbol) && (liveTimes[r.symbol] || 0) <= requestedAt) tickerCache[r.symbol] = r;
+  });
   return results;
 }
 
@@ -216,6 +219,7 @@ const sockets = new Map();
 const reconnectTimers = new Map();
 let wsPushTimer = null;
 const tickerCache = {}; // { symbol: 标准化行情对象 }
+const liveTimes = {};
 
 // 用 WS 推送的最新价 + 当日开盘价 计算"当天涨跌幅"
 function buildTickerFromWs(d, symbol) {
@@ -287,6 +291,7 @@ function connectMarket(market) {
         const id = markets.id(d.s);
         if (!config.symbols.includes(id)) return;
         tickerCache[id] = buildTickerFromWs(d, id);
+        liveTimes[id] = Date.now();
         scheduleTickerPush();
       }
     } catch {}
@@ -312,7 +317,7 @@ function scheduleReconnect(market) {
 function resubscribeWs() {
   // 清掉不再关注的缓存
   Object.keys(tickerCache).forEach((s) => {
-    if (!config.symbols.includes(s)) delete tickerCache[s];
+    if (!config.symbols.includes(s)) { delete tickerCache[s]; delete liveTimes[s]; }
   });
   connectWs();
 }
@@ -659,7 +664,7 @@ if (!gotLock) {
     connectWs();
     // WS 尚未就绪或断线时，以 REST 提供可用行情。
     setInterval(() => {
-      if ([...sockets.values()].some((sock) => sock.readyState !== 1)) {
+      if (config.symbols.some((s) => Date.now() - (liveTimes[s] || 0) > 15000)) {
         fetchAll().then(scheduleTickerPush).catch(() => {});
       }
     }, 15000);

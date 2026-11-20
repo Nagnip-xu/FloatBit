@@ -21,6 +21,6 @@ class ContractMarketTest {
         assertEquals("NVDAB", Ticker("NVDABUSDT", Double.NaN, Double.NaN).coin)
         assertEquals("USDT", ContractMarket.quote("SNDKUSDT"))
         assertEquals("https://fapi.binance.com/fapi/v1", ContractMarket.REST)
-        assertEquals("wss://fstream.binance.com/stream", ContractMarket.WS)
+        assertEquals("wss://fstream.binance.com/market/stream", ContractMarket.WS)
     }
 }
