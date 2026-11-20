@@ -3,7 +3,6 @@ package com.example.floatbit_android
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import okhttp3.Call
 import org.json.JSONObject
 
 /** 合约列表每分钟更新；失败保留旧列表，手动刷新立即重试。 */
@@ -13,7 +12,7 @@ object SymbolRepo {
     private var updatedAt = 0L
     private var attemptedAt = 0L
     private var generation = 0
-    private var call: Call? = null
+    private var call: MarketRequest? = null
     private val callbacks = ArrayList<(List<SymbolInfo>) -> Unit>()
     var loading = false
         private set

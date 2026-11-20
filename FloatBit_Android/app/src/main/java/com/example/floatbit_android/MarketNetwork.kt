@@ -8,6 +8,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
+import org.json.JSONArray
+import org.json.JSONTokener
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.InetSocketAddress
@@ -19,7 +21,7 @@ import javax.net.ssl.SSLException
 
 data class HttpProxySettings(val host: String, val port: Int) {
     init {
-        require(host.isNotBlank() && host.none { it.isWhitespace() || it in "/@?#" }) {
+        require(host.isNotBlank() && Regex("[A-Za-z0-9.\\-:_]+" ).matches(host) && host.count { it == ':' } != 1) {
             "代理地址只填写主机名或 IP，不包含 http:// 或路径"
         }
         require(port in 1..65535) { "代理端口应在 1–65535 之间" }
@@ -55,35 +57,88 @@ object MarketNetwork {
 
 class MarketHttpException(val status: Int, val apiCode: Int?) : IOException("HTTP $status")
 
-/** 单次请求有总超时；取消后不会新建请求或继续重试其他域名。 */
+/** 一组最多两次连接尝试；取消会终止当前连接，并阻止后续备用请求。 */
+class MarketRequest {
+    @Volatile var canceled = false
+        private set
+    private var active: Call? = null
+
+    @Synchronized fun cancel() {
+        canceled = true
+        active?.cancel()
+    }
+
+    @Synchronized internal fun attach(call: Call): Boolean {
+        if (canceled) { call.cancel(); return false }
+        active = call
+        return true
+    }
+}
+
+/** 主接口不可达时自动直连其官方 CDN；拒绝限流/无此合约等错误的无效重试。 */
 class ContractHttp(
     private val client: OkHttpClient,
-    private val base: HttpUrl = ContractMarket.REST.toHttpUrl()
+    private val base: HttpUrl = ContractMarket.REST.toHttpUrl(),
+    private val fallback: (() -> HttpUrl?)? = if (base == ContractMarket.REST.toHttpUrl()) {
+        { BinanceCdnRoute.resolve(client) }
+    } else null
 ) {
-    fun get(path: String, onResult: (Result<String>) -> Unit): Call {
-        val url = (base.toString().trimEnd('/') + "/" + path.trimStart('/')).toHttpUrl()
-        return client.newCall(Request.Builder().url(url).build()).also { call ->
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (!call.isCanceled()) onResult(Result.failure(e))
-                }
+    fun get(path: String, onResult: (Result<String>) -> Unit): MarketRequest {
+        val request = MarketRequest()
+        val preferred = if (base == ContractMarket.REST.toHttpUrl()) BinanceCdnRoute.preferred() else null
+        attempt(request, path, preferred ?: base, preferred != null, true, onResult)
+        return request
+    }
 
-                override fun onResponse(call: Call, response: Response) {
-                    val result = runCatching {
-                        response.use {
-                            val body = it.body?.string().orEmpty()
-                            if (!it.isSuccessful) {
-                                val code = runCatching { JSONObject(body).getInt("code") }.getOrNull()
-                                throw MarketHttpException(it.code, code)
-                            }
-                            if (body.isBlank()) throw IOException("行情响应为空")
-                            body
-                        }
-                    }
-                    if (!call.isCanceled()) onResult(result)
+    private fun attempt(
+        group: MarketRequest, path: String, route: HttpUrl, cdn: Boolean,
+        canSwitch: Boolean, onResult: (Result<String>) -> Unit
+    ) {
+        if (group.canceled) return
+        val url = (route.toString().trimEnd('/') + "/" + path.trimStart('/')).toHttpUrl()
+        val builder = Request.Builder().url(url)
+        if (cdn) builder.header("Host", "fapi.binance.com")
+        val call = client.newCall(builder.build())
+        if (!group.attach(call)) return
+        fun finish(result: Result<String>) {
+            if (group.canceled) return
+            val error = result.exceptionOrNull()
+            val retryable = error is IOException &&
+                (error !is MarketHttpException || error.status in 500..599)
+            if (retryable && canSwitch) {
+                if (cdn) {
+                    BinanceCdnRoute.invalidate(route.host)
+                    attempt(group, path, base, false, false, onResult)
+                    return
                 }
-            })
+                val alternative = runCatching { fallback?.invoke() }.getOrNull()
+                if (alternative != null && alternative != route && !group.canceled) {
+                    attempt(group, path, alternative, true, false, onResult)
+                    return
+                }
+            }
+            if (result.isSuccess && cdn) BinanceCdnRoute.succeeded(route.host)
+            if (!group.canceled) onResult(result)
         }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) = finish(Result.failure(e))
+
+            override fun onResponse(call: Call, response: Response) {
+                val result = runCatching {
+                    response.use {
+                        val body = it.body?.string().orEmpty()
+                        if (!it.isSuccessful) {
+                            val code = runCatching { JSONObject(body).getInt("code") }.getOrNull()
+                            throw MarketHttpException(it.code, code)
+                        }
+                        val data = runCatching { JSONTokener(body).nextValue() }.getOrNull()
+                        if (data !is JSONObject && data !is JSONArray) throw IOException("行情响应异常")
+                        body
+                    }
+                }
+                finish(result)
+            }
+        })
     }
 }
 

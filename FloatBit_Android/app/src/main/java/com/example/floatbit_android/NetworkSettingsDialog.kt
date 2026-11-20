@@ -12,10 +12,10 @@ object NetworkSettingsDialog {
         val current = Prefs.getProxy(context)
         MaterialAlertDialogBuilder(context)
             .setTitle("行情网络")
-            .setMessage("当前：${current?.let { "HTTP 代理 ${it.host}:${it.port}" } ?: "系统网络（含 VPN）"}\n\n" +
-                "手机网络需能访问币安合约接口。无法直连时，可开启覆盖本应用的 VPN，或设置你自己的 HTTP 代理。")
+            .setMessage("当前：${current?.let { "HTTP 代理 ${it.host}:${it.port}" } ?: "自动连接"}\n\n" +
+                "默认自动连接币安合约行情，无需预设代理。自动连接失败时，可使用覆盖本应用的 VPN，或设置你自己的 HTTP 代理。")
             .setPositiveButton("设置 HTTP 代理") { _, _ -> editProxy(context, onSaved) }
-            .setNeutralButton("使用系统网络") { _, _ ->
+            .setNeutralButton("自动连接") { _, _ ->
                 Prefs.setProxy(context, null)
                 onSaved()
             }

@@ -3,14 +3,13 @@ package com.example.floatbit_android
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import okhttp3.Call
 import org.json.JSONArray
 
 /** 合约 K 线收盘价；合并同币种请求，保留一分钟缓存。 */
 object KlineRepo {
     private val main = Handler(Looper.getMainLooper())
     private val cache = HashMap<String, Pair<Long, List<Double>>>()
-    private val calls = HashMap<String, Call>()
+    private val calls = HashMap<String, MarketRequest>()
     private val pending = HashMap<String, MutableList<(List<Double>) -> Unit>>()
     private var generation = 0
 

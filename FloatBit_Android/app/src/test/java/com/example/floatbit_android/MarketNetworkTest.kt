@@ -80,6 +80,47 @@ class MarketNetworkTest {
         assertEquals(1, server.requestCount)
     }
 
+    @Test fun networkFailureUsesTheOfficialHostHeaderOnTheFallbackRoute() {
+        server.enqueue(MockResponse().setResponseCode(502).setBody("unavailable"))
+        server.enqueue(MockResponse().setBody("{\"symbol\":\"MUUSDT\"}"))
+        val result = CompletableFuture<Result<String>>()
+        ContractHttp(client, server.url("/fapi/v1"), { server.url("/cdn/fapi/v1") })
+            .get("ticker/24hr?symbol=MUUSDT") { result.complete(it) }
+        assertTrue(result.get(3, TimeUnit.SECONDS).isSuccess)
+        assertEquals("/fapi/v1/ticker/24hr?symbol=MUUSDT", server.takeRequest().path)
+        val fallbackRequest = server.takeRequest()
+        assertEquals("/cdn/fapi/v1/ticker/24hr?symbol=MUUSDT", fallbackRequest.path)
+        assertEquals("fapi.binance.com", fallbackRequest.getHeader("Host"))
+    }
+
+    @Test fun cancellationDuringRouteLookupPreventsTheFallbackRequest() {
+        server.enqueue(MockResponse().setResponseCode(502))
+        val lookup = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val callback = CountDownLatch(1)
+        val request = ContractHttp(client, server.url("/fapi/v1"), {
+            lookup.countDown()
+            release.await(3, TimeUnit.SECONDS)
+            server.url("/cdn/fapi/v1")
+        }).get("exchangeInfo") { callback.countDown() }
+        assertTrue(lookup.await(3, TimeUnit.SECONDS))
+        request.cancel()
+        release.countDown()
+        assertFalse(callback.await(300, TimeUnit.MILLISECONDS))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun fallbackDnsMustNameTheExactBinanceHostAndItsCloudFrontCname() {
+        fun answer(name: String, host: String, type: Int = 5) =
+            "{\"Status\":0,\"Answer\":[{\"name\":\"$name\",\"type\":$type,\"TTL\":60,\"data\":\"$host\"}]}"
+        assertEquals("https://example123.cloudfront.net/fapi/v1",
+            BinanceCdnRoute.parseAnswer(answer("fapi.binance.com.", "example123.cloudfront.net."))?.first.toString())
+        assertNull(BinanceCdnRoute.parseAnswer(answer("other.binance.com.", "example123.cloudfront.net.")))
+        assertNull(BinanceCdnRoute.parseAnswer(answer("fapi.binance.com.", "example.com.")))
+        assertNull(BinanceCdnRoute.parseAnswer(answer("fapi.binance.com.", "example.cloudfront.net.evil.com.")))
+        assertNull(BinanceCdnRoute.parseAnswer(answer("fapi.binance.com.", "1.2.3.4", 1)))
+    }
+
     @Test fun theConfiguredProxyCarriesRestAndWebSocketRequests() {
         client = MarketNetwork.createClient(HttpProxySettings(server.hostName, server.port))
         server.enqueue(MockResponse().setBody("{\"lastPrice\":\"100\"}"))

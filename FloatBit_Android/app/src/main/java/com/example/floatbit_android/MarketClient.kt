@@ -3,7 +3,6 @@ package com.example.floatbit_android
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import okhttp3.Call
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -11,7 +10,7 @@ import okhttp3.WebSocketListener
 import org.json.JSONObject
 import java.util.Locale
 
-/** 合约 WebSocket + REST 快照；无推送时每 15 秒兜底，每个合约最多一个在途请求。 */
+/** 合约 WebSocket + REST 快照；断线时每 5 秒轮询兜底，每个合约最多一个在途请求。 */
 class MarketClient(
     private var symbols: List<String>,
     private val onUpdate: (Ticker) -> Unit
@@ -24,14 +23,14 @@ class MarketClient(
     private var reconnecting = false
     private val received = HashSet<String>()
     private val liveTimes = HashMap<String, Long>()
-    private val inFlight = HashMap<String, Call>()
+    private val inFlight = HashMap<String, MarketRequest>()
     private val poll = object : Runnable {
         override fun run() {
             if (stopped) return
             if (!connected || symbols.any { SystemClock.elapsedRealtime() - (liveTimes[it] ?: 0L) > 15_000 }) {
                 snapshot(generation)
             }
-            main.postDelayed(this, 15_000)
+            main.postDelayed(this, if (connected) 15_000 else 5_000)
         }
     }
 
@@ -42,7 +41,7 @@ class MarketClient(
         liveTimes.clear()
         connect(generation)
         snapshot(generation)
-        main.postDelayed(poll, 15_000)
+        main.postDelayed(poll, 5_000)
     }
 
     fun stop() {
