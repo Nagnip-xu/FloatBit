@@ -4,7 +4,7 @@
 
 <h1 align="center">FloatBit</h1>
 
-<p align="center">实时加密货币行情悬浮窗 · 盯盘，不挡视线</p>
+<p align="center">实时合约行情悬浮窗 · 盯盘，不挡视线</p>
 
 <p align="center">
   <a href="https://nagnip-xu.github.io/FloatBit/">访问官网</a> ·
@@ -14,7 +14,16 @@
 
 FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC、ETH、SOL 等自选币种放在屏幕一角，查看实时价格、涨跌和走势，同时继续工作或使用其他应用。
 
-行情来自币安公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
+行情来自币安 USDⓈ-M 合约公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
+
+## 1.1.0 更新
+
+- 所有平台统一切换币安 **USDⓈ-M 合约**接口，搜索、价格、WebSocket 和 K 线均使用合约数据。
+- 支持搜索 MU、SNDK、SKHYNIX 等接口中正在交易的股票合约；精确代码优先显示。
+- 合约列表每分钟更新，可点击「刷新」重新获取；网络失败时明确提示并保留缓存。
+- 修复长代码换行：名称保持单行，安卓自动缩小字体，超长名称使用省略显示。
+
+旧版本的 `NVDABUSDT` 是现货专有代码，请移除后重新搜索 `NVDA` 并添加 `NVDAUSDT`。BTC、ETH 等同名代码现在显示对应合约行情。当前覆盖 USDⓈ-M 合约，不包含币本位合约。
 
 ## 界面预览
 
@@ -55,10 +64,10 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 | 平台 | 安装包 | 当前版本 | 大小与要求 |
 | --- | --- | --- | --- |
-| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.0.0.exe) | 1.0.0 | 约 74.84 MiB；Windows 10 / 11，x64 |
-| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk) | 1.0（versionCode 1） | 约 6.10 MiB；Android 7.0 / API 24 及以上 |
+| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.1.0.exe) | 1.1.0 | 约 74.84 MiB；Windows 10 / 11，x64 |
+| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk) | 1.1.0（versionCode 2） | 约 6.10 MiB；Android 7.0 / API 24 及以上 |
 
-Android 当前提供的是项目已有的 **debug 构建**。桌面与手机端版本号分别维护。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
+Android 当前提供 **debug 构建**。1.1.0 与原官网 APK 的签名不同，旧版用户需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。桌面与手机端版本号分别维护。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
 
 **Windows 使用：**
 
@@ -159,8 +168,8 @@ python -m http.server 8000 --directory website
 
 ## 数据来源与常见问题
 
-- **数据来自哪里？** 价格主要来自币安公共 WebSocket；K 线、交易对等通过 REST 获取。接口说明见 [币安行情接口文档](docs/binance-api.md)。官网演示采用 REST 定时刷新。
-- **为什么看不到行情？** 请确认网络可以访问 `data-api.binance.vision` 和 `data-stream.binance.vision`；受网络、接口限制或服务状态影响时，行情可能暂时不可用。
+- **数据来自哪里？** 价格主要来自币安合约公共 WebSocket；K 线、交易对等通过 REST 获取。接口说明见 [币安行情接口文档](docs/binance-api.md)。官网演示采用 REST 定时刷新。
+- **为什么看不到行情？** 请确认网络可以访问 `fapi.binance.com` 和 `fstream.binance.com`；受网络、接口限制或服务状态影响时，行情可能暂时不可用。
 - **安卓悬浮窗没有出现？** 确认已开启「显示在其他应用上层」权限；后台运行还可能受手机系统省电设置影响。
 - **为什么克隆后没有依赖或构建目录？** `node_modules/`、Gradle 缓存和编译输出由 `.gitignore` 排除，按上面的步骤重新安装或构建即可。
 - **需要账户或交易密钥吗？** 不需要。本项目展示公共行情，不提供下单、交易或资产托管功能。

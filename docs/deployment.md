@@ -24,7 +24,7 @@
 
 目前官网使用相对路径：
 
-- Windows：`website/FloatBit-Setup-1.0.0.exe`
+- Windows：`website/FloatBit-Setup-1.1.0.exe`
 - Android：`website/FloatBit-Android.apk`
 - 校验清单：`website/SHA256SUMS.txt`
 - 截图：`website/shots/`
@@ -37,3 +37,11 @@
 - **更新没有显示**：检查提交是否在 `main`，是否修改了工作流监听的路径，并查看 Actions 日志。部署完成后可刷新浏览器缓存。
 - **图片或下载 404**：检查文件名和大小写，确认文件确实位于 `website/` 并已提交。GitHub 上的资源路径区分大小写。
 - **网页打开但行情失败**：网页部署与币安接口可达性是两件事；检查浏览器网络环境以及公共行情接口的响应。
+
+## 安装包构建
+
+在 Actions 中手动运行「构建 FloatBit 安装包」，即可测试并生成 Windows EXE 和 Android debug APK。工作流只生成构建产物，不会自动覆盖官网下载文件。
+
+正式替换下载文件前，应检查产物版本、SHA-256、Android 签名及 Windows 安装程序信息。CI 的临时 debug 签名不能作为长期升级签名使用；1.1.0 官网 APK 已在本机使用当前 debug keystore 重新签名，签名密钥未提交到仓库。
+
+原官网 1.0 APK 的证书与当前机器保留的 debug keystore 不一致，1.1.0 无法覆盖旧版安装。官网与 README 已说明先保存自选记录、卸载旧版后安装，卸载会清除旧应用的本地数据。

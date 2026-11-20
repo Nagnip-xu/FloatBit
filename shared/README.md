@@ -4,7 +4,7 @@
 
 ## 文件
 
-- `binance.js` — 币安公共行情接口封装（REST：行情、K线、交易对）+ 价格/百分比格式化等工具函数
+- `binance.js` — 币安 USDⓈ-M 合约公共行情接口封装（REST：行情、K线、交易对）+ 价格/百分比格式化等工具函数
 
 ## 设计原则
 
@@ -13,6 +13,6 @@
 - 以后做手机版（React Native / Capacitor 等）时，行情逻辑直接复用这里，只需重写界面
 
 > 说明：当前桌面版 `desktop/src/main.js` 使用自带实现——价格走 **WebSocket 实时推送**
-> （`wss://data-stream.binance.vision`，用 `ws` 库 + 自动重连），K线/交易对/启动初值走 REST
+> （`wss://fstream.binance.com`，用 `ws` 库 + 自动重连），K线/交易对/启动初值走 REST
 > （Electron `net` 模块绕过 TLS 限制）。本模块目前封装的是 REST 部分，供网页版/手机版复用；
 > 后续可在此补充 WebSocket 封装，统一各端实时行情逻辑。

@@ -21,7 +21,7 @@ window.addEventListener('scroll', onScroll);
 onScroll();
 
 // ---------- 行情数据 (币安公共接口) ----------
-const BN = 'https://data-api.binance.vision';
+const BN = 'https://fapi.binance.com/fapi/v1';
 const HERO_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
 const TAPE_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'LINKUSDT', 'AVAXUSDT', 'DOTUSDT'];
 
@@ -40,16 +40,27 @@ function coinOf(symbol) {
   return symbol.replace(/USDT$/, '');
 }
 
+const tickerRequests = new Map();
 async function fetchTickers(symbols) {
-  // 一次性拉多个: /ticker/24hr?symbols=["BTCUSDT",...]
-  const param = encodeURIComponent(JSON.stringify(symbols));
-  const res = await fetch(`${BN}/api/v3/ticker/24hr?symbols=${param}`);
-  if (!res.ok) throw new Error('网络错误');
-  return res.json();
+  return Promise.all(symbols.map((symbol) => {
+    const cached = tickerRequests.get(symbol);
+    if (cached && Date.now() - cached.time < 2500) return cached.promise;
+    const entry = { time: Date.now(), promise: null };
+    entry.promise = fetch(`${BN}/ticker/24hr?symbol=${encodeURIComponent(symbol)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('合约行情请求失败');
+        return res.json();
+      }).catch((error) => {
+        if (tickerRequests.get(symbol) === entry) tickerRequests.delete(symbol);
+        throw error;
+      });
+    tickerRequests.set(symbol, entry);
+    return entry.promise;
+  }));
 }
 
 async function fetchSparkline(symbol) {
-  const res = await fetch(`${BN}/api/v3/klines?symbol=${symbol}&interval=15m&limit=30`);
+  const res = await fetch(`${BN}/klines?symbol=${symbol}&interval=15m&limit=30`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map((k) => parseFloat(k[4])).filter((n) => isFinite(n));

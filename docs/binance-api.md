@@ -1,75 +1,44 @@
-# 币安 (Binance) 公共行情接口速查
+# 币安 USDⓈ-M 合约行情接口
 
-FloatBit 各端统一使用币安公共行情接口，**无需 API 密钥**。
+FloatBit 1.1.0 起，Windows、Android、官网演示与共享模块统一使用 **币安 USDⓈ-M 合约市场**，公共行情请求不需要 API 密钥。
 
-桌面版采用 **WebSocket 实时推送（主）+ REST（辅）** 的混合方式：价格走 WebSocket，
-K线走势图、交易对列表、启动初值走 REST。
+## 数据范围与搜索
 
-## 域名
+列表来自 `GET https://fapi.binance.com/fapi/v1/exchangeInfo`，仅展示 `status == TRADING` 的合约，同时保留普通永续、TradFi 股票合约等接口返回的合约类型。
 
-- REST 行情专用域名（推荐，免认证、速度快）：`https://data-api.binance.vision`
-- WebSocket 行情专用域名：`wss://data-stream.binance.vision`
-- 主域名：`https://api.binance.com` / `wss://stream.binance.com:9443`
+- MU、SNDK、SKHYNIX 对应 `MUUSDT`、`SNDKUSDT`、`SKHYNIXUSDT`，来自该合约列表。
+- 搜索按基础代码或完整交易对精确匹配优先，再按前缀和包含匹配排序。支持 `MU/USDT` 等输入。
+- 桌面与安卓合约列表缓存 60 秒，支持前台自动更新与手动刷新。失败保留已有列表并显示重试提示。
+- 旧现货自选中与合约同名的代码可继续查看合约行情；现货专有代码不会自动猜测映射。例如旧 `NVDABUSDT` 应移除后搜索添加 `NVDAUSDT`。
 
-> 注意：在部分网络环境下，主域名（`api.binance.com` / `stream.binance.com`）连接慢或被拦截，
-> 经实测 `*.binance.vision` 系列域名连通性更好，FloatBit 统一使用该系列。
+## REST 接口
 
-## WebSocket 实时行情 (价格)
-
-```
-wss://data-stream.binance.vision/stream?streams=btcusdt@ticker/ethusdt@ticker
-```
-
-- 多个流用 `/` 分隔，符号小写 + `@ticker`
-- 推送消息结构：`{ "stream": "...", "data": { ... } }`
-- `data` 为 `24hrTicker` 事件，关键字段：
-  - `s` 交易对（大写，如 BTCUSDT）
-  - `c` 最新价
-  - `o` / `h` / `l` 开盘 / 最高 / 最低
-  - `P` 24h 涨跌幅（百分比数值）
-  - `E` 事件时间（毫秒）
-- 注意：连接每 24 小时会被服务器断开一次，需自动重连。
-
-## 常用 REST 接口
+基础地址：`https://fapi.binance.com/fapi/v1`
 
 | 用途 | 接口 |
-|------|------|
-| 单/多个交易对 24h 行情 | `GET /api/v3/ticker/24hr?symbol=BTCUSDT` 或 `?symbols=["BTCUSDT","ETHUSDT"]` |
-| 最新价格（轻量） | `GET /api/v3/ticker/price?symbol=BTCUSDT` |
-| K线/蜡烛图 | `GET /api/v3/klines?symbol=BTCUSDT&interval=1d&limit=30` |
-| 全部交易对 | `GET /api/v3/exchangeInfo` |
+| --- | --- |
+| 全部合约及交易状态 | `GET /exchangeInfo` |
+| 单合约 24 小时行情 | `GET /ticker/24hr?symbol=MUUSDT` |
+| 最新成交价 | `GET /ticker/price?symbol=MUUSDT` |
+| 走势图 | `GET /klines?symbol=SKHYNIXUSDT&interval=15m&limit=30` |
+| 当日开盘价 | `GET /klines?symbol=MUUSDT&interval=1d&limit=1` |
 
-K线 interval：`1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M`
+多合约行情逐个用 `symbol` 查询，不使用现货接口专有的批量 `symbols` 参数。官网对同一合约的短时间并发查询去重。
 
-## 24hr 行情关键字段 (REST)
+24 小时行情字段为 `symbol`、`lastPrice`、`openPrice`、`highPrice`、`lowPrice`、`priceChangePercent`。K 线每条为 `[开始时间, 开, 高, 低, 收, 量, ...]`，走势图取索引 4 的收盘价。
 
-- `lastPrice` 最新价
-- `openPrice` 开盘价（24h 前）
-- `highPrice` / `lowPrice` 24h 最高/最低
-- `priceChangePercent` 24h 涨跌幅（百分比数值，如 `1.504`）
+## WebSocket
 
-## K线 数据格式
-
-每条为数组：`[开始时间, 开, 高, 低, 收, 量, ...]`，走势图取 index[4] 收盘价。
-
-## 当日涨跌幅算法
-
-FloatBit 显示的是「当天」涨跌，而非 24h 滚动：
-
-```
-当日涨跌% = (最新价 - 当日开盘价) / 当日开盘价 × 100
+```text
+wss://fstream.binance.com/market/stream?streams=muusdt@ticker/sndkusdt@ticker/skhynixusdt@ticker
 ```
 
-最新价来自 WebSocket 推送（`c`），当日开盘价取自日线 K线（`interval=1d`）并缓存。
-注意日线按 **UTC 自然日**划分（UTC 00:00 = 北京时间 08:00）。
+合约代码转小写，流之间用 `/` 分隔。消息包装为 `{ "stream": "...", "data": { ... } }`，`data.e == "24hrTicker"` 时读取 `s`（合约）、`c`（最新价）、`P`（24 小时涨跌幅）等字段。订阅变化会替换旧连接；连接失败会自动重连，安卓与桌面均在启动时请求 REST 快照；断线或 15 秒未收到所选合约推送时，以 REST 兜底。旧的 `/stream` 路径在本次实测中能握手却没有 ticker 推送，现已统一使用 `/market/stream`。
 
-## CORS
+## 涨跌幅与使用限制
 
-REST 公共接口返回 `Access-Control-Allow-Origin: *`，浏览器可直接跨域请求（官网首屏实时行情即依赖此特性）。
+桌面端保留原来的 UTC 自然日涨跌幅计算：用当天日线开盘价计算 `(最新价 - 开盘价) / 开盘价 × 100`，失败时退回接口 24 小时涨跌幅。安卓和官网展示接口的 24 小时涨跌幅，两者时间窗口不同。
 
-## 注意
+股票合约和代币化现货属于不同产品，价格与可交易时段也可能不同。列表、上市状态、价格和涨跌幅以实时合约接口为准。网络、区域限制或接口限流可能导致行情暂时无法显示。
 
-- 优先使用 `*.binance.vision` 系列域名（连通性更好）。
-- REST 总体限频较宽松；WebSocket 为推送式，无需轮询。
-
-> 官方文档：https://developers.binance.com/docs/binance-spot-api-docs/
+官方文档：[USDⓈ-M 合约市场数据](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information)。

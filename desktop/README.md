@@ -1,6 +1,6 @@
 # FloatBit · 桌面版 ◈
 
-实时加密货币价格悬浮窗。简约、置顶、随手拖动，盯盘不挡视线。
+实时合约行情悬浮窗。简约、置顶、随手拖动，盯盘不挡视线。
 
 ## 功能
 
@@ -11,7 +11,7 @@
 - 🎨 **主题与配色**：明暗双主题；绿涨红跌 / 红涨绿跌可切换
 - 🟢 **迷你悬浮球**：点「—」收为桌面小球，单击展开，可拖动
 - 🔔 **系统托盘**：显示/隐藏、调节透明度、退出
-- 🔒 **无需密钥**：数据取自币安公共行情接口
+- 🔒 **无需密钥**：数据取自币安 USDⓈ-M 合约公共行情接口
 
 ## 技术栈
 
@@ -50,19 +50,19 @@ desktop/
 
 ## 数据来源
 
-币安 (Binance) 公共行情，免认证、行情专用域名。
+币安 (Binance) USDⓈ-M 合约公共行情，免认证、行情专用域名。
 
 **实时价格 — WebSocket（主）**
 ```
-wss://data-stream.binance.vision/stream?streams=btcusdt@ticker/ethusdt@ticker
+wss://fstream.binance.com/market/stream?streams=btcusdt@ticker/ethusdt@ticker
 ```
 币安在价格变动时主动推送，悬浮窗与主面板实时跳动。断线自动重连。
 
 **走势图 K线 / 交易对列表 / 启动初值 — REST（辅）**
 ```
-GET https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=30
-GET https://data-api.binance.vision/api/v3/exchangeInfo
-GET https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT
+GET https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=30
+GET https://fapi.binance.com/fapi/v1/exchangeInfo
+GET https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT
 ```
 启动时用 REST 拉一次做秒开初值；WebSocket 断线时作为兜底。
 

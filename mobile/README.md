@@ -7,7 +7,7 @@ FloatBit 安卓版项目位于仓库根目录的 **`FloatBit_Android/`** 文件�
 
 ## 安卓版功能
 
-- 行情列表 + 实时 WebSocket（币安 `data-stream.binance.vision`）
+- 行情列表 + 实时 WebSocket（币安 `fstream.binance.com`）
 - 桌面悬浮窗（可拖动、缩小到单币、收缩为半隐胶囊吸附边缘）
 - 搜索添加 / 热门币种 / 长按拖动排序
 - 明暗主题、涨跌配色、悬浮窗透明度

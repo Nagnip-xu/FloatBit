@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FloatBit · 实时加密货币价格悬浮窗</title>
-  <meta name="description" content="FloatBit 是一款简约优雅的桌面加密货币行情悬浮窗，实时显示 BTC、ETH 等价格与走势，始终置顶、不挡视线。数据来自币安公共行情接口。" />
+  <title>FloatBit · 实时合约行情悬浮窗</title>
+  <meta name="description" content="FloatBit 是一款简约优雅的桌面加密货币行情悬浮窗，实时显示 BTC、ETH 等价格与走势，始终置顶、不挡视线。数据来自币安 USDⓈ-M 合约公共行情接口。" />
   <link rel="canonical" href="https://nagnip-xu.github.io/FloatBit/" />
   <link rel="icon" href="icon.png" />
   <link rel="stylesheet" href="styles.css" />
@@ -44,13 +44,13 @@
           BTC、ETH 等价格实时更新，始终浮在屏幕一角，配走势小图，一眼掌握涨跌。
         </p>
         <div class="hero-actions">
-          <a href="FloatBit-Setup-1.0.0.exe" download class="btn btn-lg">
+          <a href="FloatBit-Setup-1.1.0.exe" download class="btn btn-lg">
             <span class="btn-ico">⬇</span> 免费下载 (Windows)
           </a>
           <a href="#preview" class="btn btn-ghost btn-lg">预览界面</a>
         </div>
         <div class="hero-meta">
-          <span><b>3597+</b> 交易对</span>
+          <span><b>USDⓈ-M</b> 合约</span>
           <span><b>实时</b> 推送</span>
           <span><b>0</b> 密钥</span>
           <span><b>明 / 暗</b> 双主题</span>
@@ -137,10 +137,10 @@
         <article class="bento-card b-coins reveal">
           <div class="f-badge">🔍</div>
           <h3>海量币种</h3>
-          <p>币安全部交易对随你搜，热门一键添加。</p>
+          <p>币安全部可交易合约随你搜，热门一键添加。</p>
           <div class="coin-chips">
             <span>BTC</span><span>ETH</span><span>SOL</span><span>XRP</span>
-            <span>DOGE</span><span>+3592</span>
+            <span>DOGE</span><span>更多合约</span>
           </div>
         </article>
 
@@ -161,7 +161,7 @@
         <article class="bento-card b-safe reveal">
           <div class="f-badge">🔒</div>
           <h3>安全无密钥</h3>
-          <p>数据来自币安公共接口，不读取任何 API 密钥。</p>
+          <p>数据来自币安 USDⓈ-M 合约公共接口，不读取任何 API 密钥。</p>
           <div class="safe-tag">🔑 0 密钥</div>
         </article>
       </div>
@@ -223,7 +223,7 @@
         <div class="mobile-text reveal">
           <ul class="mobile-feats">
             <li><b>🪟 桌面悬浮窗</b><span>浮在任意 App 之上，可拖动、缩小到单币、收缩为边缘半隐胶囊</span></li>
-            <li><b>⚡ WebSocket 实时</b><span>与桌面版同源，价格秒级跳动</span></li>
+            <li><b>⚡ WebSocket 实时</b><span>与桌面版同源，合约价格实时更新</span></li>
             <li><b>📈 走势小图</b><span>每个币种迷你 K 线，红涨绿跌随心配色</span></li>
             <li><b>🔍 搜索 / 热门 / 排序</b><span>币安全量交易对搜索，长按拖动排序</span></li>
             <li><b>🌙 明暗双主题</b><span>跟手机一样护眼</span></li>
@@ -272,14 +272,15 @@
       <h2>立即开始使用 FloatBit</h2>
       <p>桌面端 Windows 10 / 11 · 手机端 Android 7.0+ · 完全免费</p>
       <div class="cta-btns">
-        <a href="FloatBit-Setup-1.0.0.exe" download class="btn btn-lg btn-glow">
+        <a href="FloatBit-Setup-1.1.0.exe" download class="btn btn-lg btn-glow">
           <span class="btn-ico">⬇</span> 下载 Windows 版
         </a>
         <a href="FloatBit-Android.apk" download class="btn btn-lg btn-ghost">
           <span class="btn-ico">🤖</span> 下载 Android 版
         </a>
       </div>
-      <p class="cta-note">Windows 1.0.0，约 75 MB · Android 1.0，约 6 MB，当前为 debug 构建 · <a href="SHA256SUMS.txt">SHA-256 校验值</a></p>
+      <p class="cta-note">Android 旧版用户请先记下自选和设置，卸载旧版后安装；卸载会清除原应用数据（新版签名与旧版不同）。</p>
+      <p class="cta-note">Windows 1.1.0，约 75 MB · Android 1.1.0，约 6 MB，当前为 debug 构建 · <a href="SHA256SUMS.txt">SHA-256 校验值</a></p>
     </div>
   </section>
 
@@ -288,7 +289,7 @@
     <div class="container footer-inner">
       <div class="footer-brand">
         <div class="footer-logo"><span class="logo">◈</span> FloatBit</div>
-        <p class="footer-tag">实时加密货币价格悬浮窗</p>
+        <p class="footer-tag">实时合约行情悬浮窗</p>
       </div>
       <div class="footer-info">
         <div class="footer-col">
