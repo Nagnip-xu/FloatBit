@@ -23,4 +23,13 @@ class ContractMarketTest {
         assertEquals("https://fapi.binance.com/fapi/v1", ContractMarket.REST)
         assertEquals("wss://fstream.binance.com/market/stream", ContractMarket.WS)
     }
+
+    @Test fun fallbackEndpointsRemainOnContractMarket() {
+        val tickerUrls = ContractMarket.restUrls("ticker/24hr?symbol=MUUSDT")
+        assertTrue(tickerUrls.size >= 2)
+        assertTrue(tickerUrls.all { it.startsWith("https://fapi") && it.contains("/fapi/v1/") })
+        assertTrue(ContractMarket.WS_HOSTS.all {
+            it.startsWith("wss://fstream") && it.endsWith("/market/stream")
+        })
+    }
 }

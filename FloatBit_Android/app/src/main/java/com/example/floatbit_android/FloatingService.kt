@@ -113,7 +113,6 @@ class FloatingService : Service() {
         listContainer = rootView.findViewById(R.id.float_list)
         panelExpanded = rootView.findViewById(R.id.panel_expanded)
         panelCollapsed = rootView.findViewById(R.id.panel_collapsed)
-        panelExpanded.layoutParams.width = minOf(dp(280), resources.displayMetrics.widthPixels - dp(16))
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -234,7 +233,7 @@ class FloatingService : Service() {
                 android.util.TypedValue.COMPLEX_UNIT_SP)
             setTextColor(textMain)
             textSize = 12f
-            val lp = LinearLayout.LayoutParams(dp(72), LinearLayout.LayoutParams.WRAP_CONTENT)
+            val lp = LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.WRAP_CONTENT)
             layoutParams = lp
         }
         val price = TextView(this).apply {

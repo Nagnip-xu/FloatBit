@@ -12,6 +12,9 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -20,7 +23,12 @@ class MarketClient(
     private var symbols: List<String>,
     private val onUpdate: (Ticker) -> Unit
 ) {
-    private val client = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).build()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .writeTimeout(12, TimeUnit.SECONDS)
+        .pingInterval(20, TimeUnit.SECONDS)
+        .build()
     private val main = Handler(Looper.getMainLooper())
     private var ws: WebSocket? = null
     private var stopped = true
@@ -68,27 +76,90 @@ class MarketClient(
     private fun snapshot(gen: Int) {
         val requestedAt = SystemClock.elapsedRealtime()
         symbols.forEach { symbol ->
-            val request = Request.Builder().url("${ContractMarket.REST}/ticker/24hr?symbol=$symbol").build()
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    publish(Ticker(symbol, Double.NaN, Double.NaN, "网络错误"), gen)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    val ticker = try {
-                        response.use {
-                            val data = JSONObject(it.body?.string() ?: "")
-                            if (!it.isSuccessful) {
-                                Ticker(symbol, Double.NaN, Double.NaN,
-                                    if (data.optInt("code") == -1121) "无此合约" else "行情加载失败")
-                            } else Ticker(symbol, data.getString("lastPrice").toDouble(),
-                                data.getString("priceChangePercent").toDouble())
-                        }
-                    } catch (_: Exception) { Ticker(symbol, Double.NaN, Double.NaN, "行情加载失败") }
-                    publish(ticker, gen, snapshotAt = requestedAt)
-                }
-            })
+            requestTicker(symbol, gen, requestedAt, 0, null)
         }
+    }
+
+    /** 逐个尝试合约 REST 备用域名，避免手机 DNS/路由只失败一个入口时整行报错。 */
+    private fun requestTicker(
+        symbol: String,
+        gen: Int,
+        requestedAt: Long,
+        hostIndex: Int,
+        lastFailure: Throwable?
+    ) {
+        val urls = ContractMarket.restUrls("ticker/24hr?symbol=$symbol")
+        if (hostIndex >= urls.size) {
+            publish(
+                Ticker(symbol, Double.NaN, Double.NaN, networkError(lastFailure)),
+                gen,
+                snapshotAt = requestedAt
+            )
+            return
+        }
+        val request = Request.Builder().url(urls[hostIndex]).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                requestTicker(symbol, gen, requestedAt, hostIndex + 1, e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                var ticker: Ticker? = null
+                var retry = false
+                var failure: Throwable? = null
+                response.use {
+                    val body = it.body?.string().orEmpty()
+                    val data = try { JSONObject(body) } catch (_: Exception) { null }
+                    if (!it.isSuccessful) {
+                        val code = data?.optInt("code") ?: 0
+                        if (code == -1121) {
+                            ticker = Ticker(symbol, Double.NaN, Double.NaN, "无此合约")
+                        } else {
+                            failure = IOException("HTTP ${it.code}")
+                            retry = hostIndex + 1 < urls.size
+                        }
+                    } else {
+                        try {
+                            ticker = Ticker(
+                                symbol,
+                                data?.getString("lastPrice")?.toDouble()
+                                    ?: throw IOException("missing lastPrice"),
+                                data?.getString("priceChangePercent")?.toDouble()
+                                    ?: throw IOException("missing priceChangePercent")
+                            )
+                        } catch (e: Exception) {
+                            failure = e
+                            retry = hostIndex + 1 < urls.size
+                        }
+                    }
+                }
+                if (retry) {
+                    requestTicker(symbol, gen, requestedAt, hostIndex + 1, failure)
+                } else {
+                    publish(
+                        ticker ?: Ticker(
+                            symbol,
+                            Double.NaN,
+                            Double.NaN,
+                            if (failure is IOException && failure?.message?.startsWith("HTTP") == true) {
+                                "行情加载失败 (${failure?.message})"
+                            } else {
+                                "行情数据异常"
+                            }
+                        ),
+                        gen,
+                        snapshotAt = requestedAt
+                    )
+                }
+            }
+        })
+    }
+
+    private fun networkError(error: Throwable?): String = when (error) {
+        is UnknownHostException -> "无法解析行情域名"
+        is SocketTimeoutException -> "行情连接超时"
+        is SSLException -> "行情安全连接失败"
+        else -> "行情网络错误"
     }
 
     private fun publish(ticker: Ticker, gen: Int, snapshotAt: Long? = null) {
@@ -103,9 +174,15 @@ class MarketClient(
     }
 
     private fun connect(gen: Int) {
+        connect(gen, 0)
+    }
+
+    private fun connect(gen: Int, hostIndex: Int) {
         if (stopped || generation != gen || symbols.isEmpty()) return
         val streams = symbols.joinToString("/") { "${it.lowercase(Locale.ROOT)}@ticker" }
-        ws = client.newWebSocket(Request.Builder().url("${ContractMarket.WS}?streams=$streams").build(),
+        val hosts = ContractMarket.WS_HOSTS
+        val url = "${hosts[hostIndex % hosts.size]}?streams=$streams"
+        ws = client.newWebSocket(Request.Builder().url(url).build(),
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     main.post { if (!stopped && generation == gen && ws === webSocket) connected = true }
@@ -121,14 +198,14 @@ class MarketClient(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) =
-                    scheduleReconnect(gen, webSocket)
+                    scheduleReconnect(gen, webSocket, hostIndex)
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) =
-                    scheduleReconnect(gen, webSocket)
+                    scheduleReconnect(gen, webSocket, hostIndex)
             })
     }
 
-    private fun scheduleReconnect(gen: Int, socket: WebSocket) {
+    private fun scheduleReconnect(gen: Int, socket: WebSocket, hostIndex: Int) {
         main.post {
             if (stopped || generation != gen || ws !== socket) return@post
             connected = false
@@ -136,7 +213,9 @@ class MarketClient(
             reconnecting = true
             main.postDelayed({
                 reconnecting = false
-                if (!stopped && generation == gen) connect(gen)
+                if (!stopped && generation == gen) {
+                    connect(gen, (hostIndex + 1) % ContractMarket.WS_HOSTS.size)
+                }
             }, 3_000)
         }
     }
