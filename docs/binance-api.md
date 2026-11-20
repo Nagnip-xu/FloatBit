@@ -29,11 +29,15 @@ FloatBit 1.1.0 起，Windows、Android、官网演示与共享模块统一使用
 
 ## WebSocket
 
+1.2.0 同时尝试 `fstream.binance.com` 和 `fstream.binance.me` 的 `/market/stream`，以首条有效行情选路，关闭其他候选。例如：
+
 ```text
-wss://fstream.binance.com/market/stream?streams=muusdt@ticker/sndkusdt@ticker/skhynixusdt@ticker
+wss://fstream.binance.me/market/stream?streams=muusdt@aggTrade/muusdt@ticker/sndkusdt@aggTrade/sndkusdt@ticker
 ```
 
-合约代码转小写，流之间用 `/` 分隔。消息包装为 `{ "stream": "...", "data": { ... } }`，`data.e == "24hrTicker"` 时读取 `s`（合约）、`c`（最新价）、`P`（24 小时涨跌幅）等字段。订阅变化会替换旧连接；连接失败会自动重连，安卓与桌面均在启动时请求 REST 快照；桌面在断线或 15 秒未收到所选合约推送时以 REST 兜底。Android 1.1.1 在 WebSocket 断线时每 5 秒轮询，连接成功但 15 秒无行情时也获取 REST 快照。旧的 `/stream` 路径在本次实测中能握手却没有 ticker 推送，现已统一使用 `/market/stream`。
+消息为 `{ "stream": "...", "data": { ... } }`。`aggTrade` 使用 `s`（合约）、`p`（成交价）、`T`（成交时间）；`24hrTicker` 使用 `c`、`o`、`h`、`l`、`C` 等。按交易所时间合并，慢 ticker 不会覆盖新成交，但仍可补统计。界面每 50ms 合并更新。
+
+启动快照与 WebSocket 并行，不等待日线。连接故障自动重连，5 秒 REST 只用于补齐首值/断线/过期数据，不是实时价格的刷新周期。搜索列表每分钟刷新、迷你走势图每 30 秒刷新，与价格推送互不阻塞。
 
 ## 涨跌幅与使用限制
 
@@ -43,10 +47,8 @@ wss://fstream.binance.com/market/stream?streams=muusdt@ticker/sndkusdt@ticker/sk
 
 官方文档：[USDⓈ-M 合约市场数据](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information)。
 
-## Android 1.1.1 的直连备用通道
+## 1.2.0 两端的 REST 直连备用通道
 
-Android 的合约列表、ticker 和 K 线统一使用 `ContractHttp`。主域名发生连接错误或 5xx 时，通过腾讯 DNSPod 的 HTTPS DNS 查询当前 `fapi.binance.com` CNAME，仅接受该名称对应的 `*.cloudfront.net` 分发；使用返回地址建立 HTTPS 连接，保留 `Host: fapi.binance.com`，保持正常证书校验。不会写死 CDN 地址，也不会请求现货行情。
+Android `ContractHttp` 与 Windows `ContractNetwork` 同时请求主域名、解析官方 CDN，最快成功者胜出并取消其他请求。DNSPod HTTPS DNS 只接收域名查询；仅接受 `fapi.binance.com` 的 CloudFront CNAME，按 TTL 缓存。TLS 验证 CDN 主机名，HTTP Host 保留币安合约域名。Windows 开启 gzip，避免完整合约列表传输阻塞。
 
-成功通道按 DNS TTL 短期缓存并优先复用；每次请求最多两次连接尝试。无效合约、限流与访问受限等 HTTP 4xx 直接报告，不轮换域名重复请求。DNS 服务只收到币安域名查询，不收到合约代码、价格查询或任何账户信息。
-
-这是对币安当前 CDN 配置的兼容，CDN 分发规则可能改变，不作为币安承诺的长期备用 API。若主接口和备用通道均不可达，用户可在「网络」中选择自己的 HTTP 代理；REST 和 WSS 使用同一配置。排查过程见 [安卓网络说明](android-network.md)。
+每轮最多两个候选，无效合约/限流等 HTTP 4xx 不再启动重试循环。CDN 分发规则可能变化，不作为币安长期备用 API 的承诺。详细诊断和实测见 [网络说明](android-network.md)。

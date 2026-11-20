@@ -16,12 +16,21 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 行情来自币安 USDⓈ-M 合约公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
 
-## Android 1.1.1 更新
+## 1.2.0 更新（Windows / Android）
 
-- 恢复旧版紧凑悬浮窗：去掉 280dp 固定宽度，币种栏恢复 40dp，长名称保持单行。
-- 修复普通网络下合约接口无法连接的问题：主域名不可达时，自动查询币安当前的官方 CDN 并尝试直连，全部仍为 USDⓈ-M 合约数据。
-- WebSocket 无法连接时每 5 秒获取合约行情，每个币种最多一个在途请求；切换自选或退出会取消旧请求。
-- 细分超时、域名、限流等提示，增加可选「网络」设置；默认自动连接，无需预先配置代理。
+- **实时成交推送**：两端同时订阅合约 `@aggTrade` 与 `@ticker`，成交更新价格、ticker 补充统计；界面每 50ms 合并显示最新数据，不再依靠 5 秒轮询刷新价格。
+- **默认自动直连**：并行尝试币安 `.com` / `.me` 合约 WebSocket，以首条有效行情选路；REST 同时尝试主域名和动态官方 CDN，正常验证 HTTPS 证书。
+- **启动更快**：移除安卓页面重复连接、切回页面不再重置健康连接；桌面首价不等待日线或其他币种请求。慢 REST/ticker 不会覆盖更新的成交价。
+- **Windows 安装修复**：替换旧 NSIS 安装模式页中易崩溃的用户目录查询，保留安装位置选择和覆盖升级；构建流程自动验证静默安装、升级、启动、卸载。
+- 保留安卓旧版紧凑浮窗，长币种名保持单行。连接中/重连状态与 REST 快照明确区分，缓存不会冒充实时数据。
+
+本机无代理测试：BTC、ETH、MU、SNDK、SKHYNIX 首条成交约 **0.9–1.0 秒**，15 秒各收到 **221–850 条**成交；合约列表含 956 项，MU/SNDK/SKHYNIX 均处于 `TRADING` 状态。这是一次网络实测，成交频率取决于市场，50ms 是界面合并间隔，不是保证端到端延迟。
+
+完整测试、无代理实测和验证范围见 [1.2.0 检查记录](docs/release-1.2.0.md)。
+
+历史 1.1.1 增加了安卓 REST 备用通道；1.2.0 同时补齐两端的无代理实时通道，5 秒 REST 仅用于断线或行情过期时补救。
+
+
 
 ## 1.1.0 更新
 
@@ -71,10 +80,10 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 | 平台 | 安装包 | 当前版本 | 大小与要求 |
 | --- | --- | --- | --- |
-| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.1.0.exe) | 1.1.0 | 约 74.84 MiB；Windows 10 / 11，x64 |
-| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.1.1) | 1.1.1（versionCode 3） | 约 6.19 MiB；Android 7.0 / API 24 及以上 |
+| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.2.0.exe) | 1.2.0 | 约 75 MiB；Windows 10 / 11，x64 |
+| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.2.0) | 1.2.0（versionCode 4） | 约 6.2 MiB；Android 7.0 / API 24 及以上 |
 
-Android 当前提供 **debug 构建**。1.1.1 沿用官网 1.1.0 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。桌面与手机端版本号分别维护。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
+Android 当前提供 **debug 构建**。1.2.0 沿用官网 1.1.0 / 1.1.1 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。本次两端统一为 1.2.0。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
 
 **Windows 使用：**
 
@@ -130,6 +139,7 @@ cd FloatBit
 ```bash
 cd desktop
 npm ci
+npm test
 npm start
 ```
 
@@ -177,7 +187,8 @@ python -m http.server 8000 --directory website
 ## 数据来源与常见问题
 
 - **数据来自哪里？** 价格主要来自币安合约公共 WebSocket；K 线、交易对等通过 REST 获取。接口说明见 [币安行情接口文档](docs/binance-api.md)。官网演示采用 REST 定时刷新。
-- **必须开代理吗？旧版为什么可以直连？** 不强制。旧版使用 `.binance.vision` 现货域名，合约版使用的 `fapi.binance.com` / `fstream.binance.com` 在部分网络可达性不同。Android 1.1.1 会自动尝试官方 CDN 直连，WebSocket 不通时用合约 REST 轮询，代理是可选兜底。CDN、DNS 服务和运营商路由仍可能变化，不能保证所有地区和网络均可直连。详见 [安卓网络说明](docs/android-network.md)。
+- **必须开代理吗？旧版为什么可以直连？** 默认自动直连，不要求先开代理。旧版使用 `.binance.vision` 现货域名，切换合约后入口不同；1.2.0 在两端加入合约 WebSocket 备用通道与并行 CDN 请求。实时由成交推送驱动；断线时的 REST 快照只作补救。详见 [网络说明](docs/android-network.md)。
+- **50ms 刷新是不是固定延迟？** 这是界面合并绘制的间隔。收到成交后显示最新价格，实际延迟还受网络、交易所推送和成交频率影响；没有成交时价格自然不会变化。
 - **安卓悬浮窗没有出现？** 确认已开启「显示在其他应用上层」权限；后台运行还可能受手机系统省电设置影响。
 - **为什么克隆后没有依赖或构建目录？** `node_modules/`、Gradle 缓存和编译输出由 `.gitignore` 排除，按上面的步骤重新安装或构建即可。
 - **需要账户或交易密钥吗？** 不需要。本项目展示公共行情，不提供下单、交易或资产托管功能。

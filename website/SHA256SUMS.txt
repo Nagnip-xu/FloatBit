@@ -1,2 +1,2 @@
-4a4a8da43e0394f4c36876fda9dfa24ea1a6cfc2a6f51fc64af11af8d83f068c  FloatBit-Android.apk
-ccbf60661fa1115c716d7be2423c1eaf3a29702872906ca354b1a456d652d433  FloatBit-Setup-1.1.0.exe
+7c7be6c1c68c65d55a17cbdf0374d59da7695649ad235c8505e98a3b58f66a90  FloatBit-Android.apk
+55049b66194549fcfafe50491ccc246c212776fe1f8ea2cf997dd5819af66ccb  FloatBit-Setup-1.2.0.exe

@@ -5,7 +5,7 @@
 ## 功能
 
 - 🪟 **悬浮窗**：无边框、半透明、始终置顶，可自由拖动并记忆位置
-- ⚡ **实时价格**：基于 WebSocket，币安行情变动即时推送，价格秒级跳动并高亮提示
+- ⚡ **实时价格**：基于 WebSocket，币安行情变动即时推送，成交价实时更新，界面每 50ms 合并显示
 - 📈 **走势小图**：每个币种迷你 K线 走势图，颜色跟随当日涨跌
 - 🔍 **主面板**：搜索全部交易对、热门币种一键添加、自选管理
 - 🎨 **主题与配色**：明暗双主题；绿涨红跌 / 红涨绿跌可切换
@@ -54,9 +54,9 @@ desktop/
 
 **实时价格 — WebSocket（主）**
 ```
-wss://fstream.binance.com/market/stream?streams=btcusdt@ticker/ethusdt@ticker
+wss://fstream.binance.me/market/stream?streams=btcusdt@aggTrade/btcusdt@ticker/ethusdt@aggTrade/ethusdt@ticker
 ```
-币安在价格变动时主动推送，悬浮窗与主面板实时跳动。断线自动重连。
+同时连接 `.com` 与 `.me` 合约通道，以首条有效数据选路。成交驱动最新价，ticker 补充统计，断线自动重连。默认自动直连，不要求代理。
 
 **走势图 K线 / 交易对列表 / 启动初值 — REST（辅）**
 ```
@@ -64,7 +64,9 @@ GET https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=30
 GET https://fapi.binance.com/fapi/v1/exchangeInfo
 GET https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT
 ```
-启动时用 REST 拉一次做秒开初值；WebSocket 断线时作为兜底。
+启动时 REST 与 WebSocket 并行，首价不等待日线；REST 同时尝试主域名和动态 CDN，断线时作为快照兜底。
+
+1.2.0 修复 NSIS 用户安装模式目录查询的崩溃，CI 自动验证静默安装、覆盖升级、启动和卸载。
 
 涨跌幅按当日 (UTC 自然日) 开盘价计算。
 
