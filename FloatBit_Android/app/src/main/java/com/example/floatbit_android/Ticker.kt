@@ -4,19 +4,16 @@ package com.example.floatbit_android
 data class Ticker(
     val symbol: String,      // 如 BTCUSDT
     val last: Double,        // 最新价
-    val changePct: Double    // 24h 涨跌幅 (百分比, 如 1.5 表示 +1.5%)
+    val changePct: Double,   // 24h 涨跌幅 (百分比, 如 1.5 表示 +1.5%)
+    val error: String? = null
 ) {
     /** 基础币名, 如 BTC */
     val coin: String
-        get() = symbol.removeSuffix("USDT").removeSuffix("USDC").removeSuffix("USD")
+        get() = ContractMarket.coin(symbol)
 
     /** 计价币, 如 USDT */
     val quote: String
-        get() = when {
-            symbol.endsWith("USDT") -> "USDT"
-            symbol.endsWith("USDC") -> "USDC"
-            else -> ""
-        }
+        get() = ContractMarket.quote(symbol)
 
     /** 格式化后的价格字符串 */
     fun formatPrice(): String = when {

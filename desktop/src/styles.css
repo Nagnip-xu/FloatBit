@@ -131,12 +131,13 @@ html, body {
   flex-direction: column;
   gap: 1px;
   flex: 1;
-  min-width: 44px;
+  min-width: 0;
 }
 
 .row .spark-wrap {
-  width: 60px;
-  flex-shrink: 0;
+  width: 48px;
+  min-width: 12px;
+  flex-shrink: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -157,6 +158,9 @@ html, body {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .row .pair {

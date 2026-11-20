@@ -7,10 +7,10 @@
  * 用法 (浏览器 / 手机 WebView 环境, 用全局 fetch):
  *   import { getTickers, getKlines, getSymbols } from './binance.js';
  *
- * 数据来源: 币安公共行情专用域名 data-api.binance.vision (免密钥)
+ * 数据来源: 币安公共行情专用域名 fapi.binance.com (免密钥)
  */
 
-export const BINANCE_HOST = 'https://data-api.binance.vision';
+export const BINANCE_HOST = 'https://fapi.binance.com';
 
 /**
  * 获取一个或多个交易对的 24h 行情
@@ -19,10 +19,12 @@ export const BINANCE_HOST = 'https://data-api.binance.vision';
  * @returns {Promise<Array>} 标准化后的行情数组
  */
 export async function getTickers(symbols, fetchFn = fetch) {
-  const param = encodeURIComponent(JSON.stringify(symbols));
-  const res = await fetchFn(`${BINANCE_HOST}/api/v3/ticker/24hr?symbols=${param}`);
-  const data = await res.json();
-  const arr = Array.isArray(data) ? data : [data];
+  // 合约接口使用单 symbol 查询，不使用现货接口的 symbols 参数。
+  const arr = await Promise.all(symbols.map(async (symbol) => {
+    const res = await fetchFn(`${BINANCE_HOST}/fapi/v1/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) throw new Error(`合约行情请求失败: ${res.status}`);
+    return res.json();
+  }));
   return arr.map((d) => ({
     symbol: d.symbol,
     last: parseFloat(d.lastPrice),
@@ -40,7 +42,8 @@ export async function getTickers(symbols, fetchFn = fetch) {
  * @param {number} limit 条数
  */
 export async function getKlines(symbol, interval = '15m', limit = 30, fetchFn = fetch) {
-  const res = await fetchFn(`${BINANCE_HOST}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  const res = await fetchFn(`${BINANCE_HOST}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`);
+  if (!res.ok) throw new Error(`合约 K 线请求失败: ${res.status}`);
   const data = await res.json();
   if (!Array.isArray(data)) return [];
   return data.map((k) => parseFloat(k[4])).filter((n) => isFinite(n));
@@ -50,7 +53,8 @@ export async function getKlines(symbol, interval = '15m', limit = 30, fetchFn = 
  * 获取全部可交易的交易对 (用于搜索 / 添加)
  */
 export async function getSymbols(fetchFn = fetch) {
-  const res = await fetchFn(`${BINANCE_HOST}/api/v3/exchangeInfo`);
+  const res = await fetchFn(`${BINANCE_HOST}/fapi/v1/exchangeInfo`);
+  if (!res.ok) throw new Error(`合约列表请求失败: ${res.status}`);
   const data = await res.json();
   if (!data || !Array.isArray(data.symbols)) return [];
   return data.symbols

@@ -11,14 +11,7 @@ let lastPrices = {}; // 记录上次价格用于闪烁判断
 
 // ---------- 工具 ----------
 function coinName(symbol) {
-  // BTCUSDT -> { coin: 'BTC', pair: 'USDT' }
-  const quotes = ['USDT', 'USDC', 'USD1', 'USD', 'BTC', 'ETH'];
-  for (const q of quotes) {
-    if (symbol.endsWith(q) && symbol.length > q.length) {
-      return { coin: symbol.slice(0, symbol.length - q.length), pair: q };
-    }
-  }
-  return { coin: symbol, pair: '' };
+  return window.FloatBitMarkets.parse(symbol);
 }
 
 function formatPrice(n) {
@@ -118,7 +111,7 @@ function render(tickers) {
     if (!t.ok) {
       row.innerHTML = `
         <div class="sym">
-          <span class="coin">${coin}</span>
+          <span class="coin" title="${coin}">${coin}</span>
           <span class="pair">${pair}</span>
         </div>
         <div class="right">
@@ -137,7 +130,7 @@ function render(tickers) {
 
     row.innerHTML = `
       <div class="sym">
-        <span class="coin">${coin}</span>
+        <span class="coin" title="${coin}">${coin}</span>
         <span class="pair">${pair}</span>
       </div>
       <div class="spark-wrap" data-spark="${t.symbol}"></div>

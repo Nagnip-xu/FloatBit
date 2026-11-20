@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -13,17 +14,23 @@
 
     <!-- 币种名 -->
     <LinearLayout
-        android:layout_width="56dp"
+        android:layout_width="96dp"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/tv_coin"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="BTC"
             android:textColor="@color/text_main"
             android:textSize="17sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="11sp"
+            app:autoSizeMaxTextSize="17sp"
+            app:autoSizeStepGranularity="1sp"
             android:textStyle="bold" />
 
         <TextView
@@ -38,16 +45,16 @@
     <!-- 走势图 (固定尺寸) -->
     <com.example.floatbit_android.SparklineView
         android:id="@+id/spark"
-        android:layout_width="84dp"
+        android:layout_width="0dp"
+        android:layout_weight="1"
         android:layout_height="34dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp" />
 
     <!-- 价格 + 涨跌 (固定宽度, 保证走势图对齐) -->
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="end">
 
@@ -59,6 +66,7 @@
             android:textColor="@color/text_main"
             android:textSize="16sp"
             android:maxLines="1"
+            android:ellipsize="end"
             android:textStyle="bold" />
 
         <TextView

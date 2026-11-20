@@ -225,13 +225,19 @@ class FloatingService : Service() {
             layoutParams = lp
         }
         val coin = TextView(this).apply {
-            text = symbol.removeSuffix("USDT").removeSuffix("USDC").removeSuffix("USD")
+            text = ContractMarket.coin(symbol)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            contentDescription = text
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this, 9, 12, 1,
+                android.util.TypedValue.COMPLEX_UNIT_SP)
             setTextColor(textMain)
             textSize = 12f
-            val lp = LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.WRAP_CONTENT)
+            val lp = LinearLayout.LayoutParams(dp(72), LinearLayout.LayoutParams.WRAP_CONTENT)
             layoutParams = lp
         }
         val price = TextView(this).apply {
+            maxLines = 1
             text = "…"
             setTextColor(textMain)
             textSize = 12f
@@ -264,8 +270,8 @@ class FloatingService : Service() {
 
     private fun updateRow(t: Ticker) {
         val rv = rows[t.symbol] ?: return
-        rv.price.text = t.formatPrice()
-        rv.change.text = t.formatChange()
+        rv.price.text = if (t.last.isNaN()) t.error ?: "…" else t.formatPrice()
+        rv.change.text = if (t.last.isNaN()) "" else t.formatChange()
         val up = t.changePct >= 0
         val color = if (up) (if (redUp) red else green) else (if (redUp) green else red)
         rv.change.setTextColor(color)

@@ -10,6 +10,8 @@ const HOT_COINS = [
 
 let config = null;
 let allSymbols = []; // [{symbol, base, quote}]
+let symbolsLoading = false;
+let symbolsError = '';
 
 const els = {
   watchList: document.getElementById('watch-list'),
@@ -43,13 +45,7 @@ function applyColorScheme(scheme) {
 
 // ---------- 工具 ----------
 function splitSymbol(symbol) {
-  const quotes = ['USDT', 'USDC', 'USD1', 'USD', 'BTC', 'ETH'];
-  for (const q of quotes) {
-    if (symbol.endsWith(q) && symbol.length > q.length) {
-      return { coin: symbol.slice(0, symbol.length - q.length), pair: q };
-    }
-  }
-  return { coin: symbol, pair: '' };
+  return window.FloatBitMarkets.parse(symbol);
 }
 
 let toastTimer = null;
@@ -137,7 +133,7 @@ function renderWatch() {
     item.className = 'watch-item';
     item.innerHTML = `
       <div class="info">
-        <span class="coin">${coin}</span>
+        <span class="coin" title="${coin}">${coin}</span>
         <span class="pair">${pair}</span>
       </div>
       <div class="spark-wrap" data-spark="${symbol}"></div>
@@ -187,10 +183,11 @@ function renderHot() {
   HOT_COINS.forEach((coin) => {
     const symbol = `${coin}USDT`;
     const added = hasSymbol(symbol);
+    const available = allSymbols.some((s) => s.symbol === symbol);
     const chip = document.createElement('div');
-    chip.className = 'hot-chip' + (added ? ' added' : '');
+    chip.className = 'hot-chip' + (added || !available ? ' added' : '');
     chip.innerHTML = `<span class="h-coin">${coin}</span><span class="h-pair">USDT</span>`;
-    if (!added) {
+    if (!added && available) {
       chip.addEventListener('click', () => addSymbol(symbol));
     }
     els.hotGrid.appendChild(chip);
@@ -203,20 +200,14 @@ function renderSearch(keyword) {
   const kw = (keyword || '').trim().toUpperCase();
   if (!kw) return;
 
-  // 计价币排序优先级: USDT > USDC > 其余
-  const quoteRank = (q) => (q === 'USDT' ? 0 : q === 'USDC' ? 1 : 2);
-
-  const matched = allSymbols
-    .filter((s) => s.symbol.includes(kw) || s.base.includes(kw))
-    .sort((a, b) => {
-      const r = quoteRank(a.quote) - quoteRank(b.quote);
-      if (r !== 0) return r;
-      return a.symbol.localeCompare(b.symbol);
-    })
-    .slice(0, 30);
+  const matched = window.FloatBitMarkets.search(allSymbols, kw);
 
   if (!matched.length) {
-    els.searchResults.innerHTML = '<div class="no-result">没有找到匹配的交易对</div>';
+    const message = symbolsLoading ? '正在更新合约列表…' : symbolsError || '没有找到可交易的合约，请尝试完整代码（如 MU、SNDK、SKHYNIX）';
+    const hint = document.createElement('div');
+    hint.className = 'no-result';
+    hint.textContent = message;
+    els.searchResults.appendChild(hint);
     return;
   }
 
@@ -227,7 +218,7 @@ function renderSearch(keyword) {
     item.innerHTML = `
       <div class="r-left">
         <span class="r-coin">${s.base}</span>
-        <span class="r-pair">${s.quote}</span>
+        <span class="r-pair">${s.quote} · 合约</span>
       </div>
       <span class="r-add">${added ? '已添加' : '+ 添加'}</span>`;
     if (!added) {
@@ -235,6 +226,24 @@ function renderSearch(keyword) {
     }
     els.searchResults.appendChild(item);
   });
+}
+
+async function refreshSymbols(force = false) {
+  if (symbolsLoading) return;
+  symbolsLoading = true;
+  renderSearch(els.searchInput.value);
+  try {
+    const result = await api.getSymbols(force);
+    allSymbols = result.symbols;
+    symbolsError = result.errors.length ? `${result.errors.join('；')}，请点击刷新重试` : '';
+  } catch {
+    symbolsError = '合约列表加载失败，请检查网络并点击刷新';
+  } finally {
+    symbolsLoading = false;
+    document.getElementById('symbols-status').textContent = symbolsError || `币安 USDⓈ-M 合约 · ${allSymbols.length} 个交易对`;
+    renderSearch(els.searchInput.value);
+    renderHot();
+  }
 }
 
 // ---------- 自选实时价格 ----------
@@ -257,6 +266,7 @@ function applyPrices(tickers) {
       el.style.color = 'var(--text)';
     } else {
       el.textContent = t.error || '错误';
+      el.title = t.error || '错误';
     }
   });
   // 首次拿到当日涨跌数据后, 刷新走势图颜色使其与价格一致
@@ -355,7 +365,10 @@ els.themeToggle.addEventListener('click', async () => {
   renderSettings();
 
   // 拉取全部交易对 (用于搜索)
-  allSymbols = await api.getSymbols();
+  refreshSymbols();
+  document.getElementById('refresh-symbols').addEventListener('click', () => refreshSymbols(true));
+  window.addEventListener('focus', () => refreshSymbols());
+  setInterval(refreshSymbols, 60000);
 
   // 初始价格 (REST 拉一次), 之后由 WebSocket 实时推送驱动
   refreshPrices();

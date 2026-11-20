@@ -2,6 +2,7 @@ package com.example.floatbit_android
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -10,59 +11,68 @@ import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
 
-/** 交易对信息 */
-data class SymbolInfo(val symbol: String, val base: String, val quote: String)
-
-/** 获取币安全部交易对 (用于搜索)。带内存缓存。 */
+/** 合约列表每分钟更新；失败时保留旧列表，始终回调，支持手动重试。 */
 object SymbolRepo {
-    private const val URL = "https://data-api.binance.vision/api/v3/exchangeInfo"
     private val client = OkHttpClient()
     private val main = Handler(Looper.getMainLooper())
     private var cache: List<SymbolInfo> = emptyList()
+    private var updatedAt = 0L
+    private var attemptedAt = 0L
+    private val callbacks = ArrayList<(List<SymbolInfo>) -> Unit>()
+    var loading = false
+        private set
+    var error: String? = null
+        private set
 
-    /** 异步加载全部交易对; 已缓存则直接回调 */
-    fun load(onResult: (List<SymbolInfo>) -> Unit) {
-        if (cache.isNotEmpty()) { onResult(cache); return }
-        client.newCall(Request.Builder().url(URL).build()).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
-            override fun onResponse(call: Call, response: Response) {
-                try {
-                    val body = response.body?.string() ?: return
-                    val arr = JSONObject(body).getJSONArray("symbols")
-                    val list = ArrayList<SymbolInfo>(arr.length())
-                    for (i in 0 until arr.length()) {
-                        val o = arr.getJSONObject(i)
-                        if (o.optString("status") != "TRADING") continue
-                        list.add(
-                            SymbolInfo(
-                                o.getString("symbol"),
-                                o.getString("baseAsset"),
-                                o.getString("quoteAsset")
-                            )
-                        )
-                    }
-                    cache = list
-                    main.post { onResult(list) }
-                } catch (_: Exception) {
+    fun load(force: Boolean = false, onResult: (List<SymbolInfo>) -> Unit) {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && (cache.isNotEmpty() && now - updatedAt < 60_000 ||
+                error != null && now - attemptedAt < 5_000)) {
+            onResult(cache)
+            return
+        }
+        callbacks.add(onResult)
+        if (loading) return
+        loading = true
+        attemptedAt = now
+        client.newCall(Request.Builder().url("${ContractMarket.REST}/exchangeInfo").build())
+            .enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) = finish(null)
+
+                override fun onResponse(call: Call, response: Response) {
+                    val list = try {
+                        response.use {
+                            if (!it.isSuccessful) throw IOException("HTTP ${it.code}")
+                            val arr = JSONObject(it.body?.string() ?: "").getJSONArray("symbols")
+                            buildList {
+                                for (i in 0 until arr.length()) {
+                                    val o = arr.getJSONObject(i)
+                                    if (o.optString("status") == "TRADING") add(SymbolInfo(
+                                        o.getString("symbol"), o.getString("baseAsset"), o.getString("quoteAsset")
+                                    ))
+                                }
+                            }.also { if (it.isEmpty()) throw IOException("Empty contract list") }
+                        }
+                    } catch (_: Exception) { null }
+                    finish(list)
                 }
-            }
-        })
+            })
     }
 
-    /** 按关键词搜索, USDT 优先, USDC 次之 */
-    fun search(keyword: String, limit: Int = 20): List<SymbolInfo> {
-        val kw = keyword.trim().uppercase()
-        if (kw.isEmpty()) return emptyList()
-        return cache.asSequence()
-            .filter { it.symbol.contains(kw) || it.base.contains(kw) }
-            .sortedWith(compareBy({ quoteRank(it.quote) }, { it.symbol }))
-            .take(limit)
-            .toList()
+    private fun finish(list: List<SymbolInfo>?) {
+        main.post {
+            if (list != null) {
+                cache = list
+                updatedAt = SystemClock.elapsedRealtime()
+                error = null
+            } else error = "合约列表更新失败，请检查网络并点击刷新"
+            loading = false
+            val pending = callbacks.toList()
+            callbacks.clear()
+            pending.forEach { it(cache) }
+        }
     }
 
-    private fun quoteRank(q: String) = when (q) {
-        "USDT" -> 0
-        "USDC" -> 1
-        else -> 2
-    }
+    fun search(keyword: String, limit: Int = 20): List<SymbolInfo> =
+        ContractMarket.search(cache, keyword, limit)
 }

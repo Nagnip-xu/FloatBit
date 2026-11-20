@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('floatbit', {
   // 数据
   getTickers: () => ipcRenderer.invoke('get-tickers'),
   getConfig: () => ipcRenderer.invoke('get-config'),
-  getSymbols: () => ipcRenderer.invoke('get-symbols'),
+  getSymbols: (force = false) => ipcRenderer.invoke('get-symbols', force),
   getKlines: (symbols) => ipcRenderer.invoke('get-klines', symbols),
   setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
 

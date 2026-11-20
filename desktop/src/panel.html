@@ -35,13 +35,14 @@
     <!-- 搜索添加 -->
     <section class="block">
       <div class="block-head">
-        <h2>添加币种</h2>
+        <h2>添加合约</h2>
       </div>
       <div class="search-box">
-        <input type="text" id="search-input" placeholder="搜索币种，如 BTC、SOL、DOGE…" autocomplete="off" />
+        <input type="text" id="search-input" placeholder="搜索合约，如 BTC、MU、SNDK、SKHYNIX…" autocomplete="off" />
         <span class="search-icon">🔍</span>
       </div>
       <div class="search-results" id="search-results"></div>
+      <div class="symbols-meta"><span id="symbols-status" role="status">正在更新合约列表…</span><button id="refresh-symbols" type="button">刷新</button></div>
     </section>
 
     <!-- 热门币种 -->
@@ -82,13 +83,14 @@
       </div>
     </section>
 
-    <p class="foot-note">价格来自币安 (Binance) 公共行情接口，无需密钥。</p>
+    <p class="foot-note">价格来自币安 USDⓈ-M 合约公共接口，无需密钥。</p>
     <p class="author">作者：Nagnip · <a href="mailto:xu814667@gmail.com" id="author-mail">xu814667@gmail.com</a></p>
   </main>
 
   <!-- 提示条 -->
   <div class="toast" id="toast"></div>
 
+  <script src="markets.js"></script>
   <script src="panel.js"></script>
 </body>
 </html>

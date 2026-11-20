@@ -82,7 +82,8 @@ class TickerAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val t = items[position]
         holder.coin.text = t.coin
-        holder.pair.text = t.quote
+        holder.pair.text = "${t.quote} · 合约"
+        holder.coin.contentDescription = t.coin
         bindPrice(holder, t)
         // 走势图: 按币种加载 (与实时价格无关), 颜色用当前涨跌方向
         loadSpark(holder, t)
@@ -105,7 +106,7 @@ class TickerAdapter(
 
     private fun bindPrice(holder: VH, t: Ticker) {
         if (t.last.isNaN()) {
-            holder.price.text = "…"
+            holder.price.text = t.error ?: "…"
             holder.change.text = ""
         } else {
             holder.price.text = t.formatPrice()

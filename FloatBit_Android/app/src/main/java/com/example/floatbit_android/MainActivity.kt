@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
@@ -30,6 +32,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTheme: TextView
     private lateinit var searchResults: LinearLayout
     private lateinit var input: EditText
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val refreshTask = object : Runnable {
+        override fun run() {
+            refreshSymbols()
+            refreshHandler.postDelayed(this, 60_000)
+        }
+    }
 
     private val hotCoins = listOf(
         "BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA",
@@ -56,9 +65,6 @@ class MainActivity : AppCompatActivity() {
 
         client = MarketClient(symbols) { ticker -> adapter.updateTicker(ticker) }
         client.start()
-
-        // 预加载全部交易对供搜索
-        SymbolRepo.load { }
 
         setupHeader()
         setupHotCoins()
@@ -104,13 +110,15 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
             override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {
                 renderSearch(s?.toString() ?: "")
+                refreshSymbols()
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
         // 搜索按钮 / 回车: 收起键盘 (结果已实时显示)
         findViewById<TextView>(R.id.btn_add).setOnClickListener {
-            renderSearch(input.text.toString())
+            refreshSymbols(force = true)
         }
+        findViewById<TextView>(R.id.refresh_symbols).setOnClickListener { refreshSymbols(force = true) }
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 renderSearch(input.text.toString()); true
@@ -160,6 +168,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------- 搜索结果 ----------
+    private fun refreshSymbols(force: Boolean = false) {
+        SymbolRepo.load(force) {
+            if (!isDestroyed) {
+                findViewById<TextView>(R.id.symbol_status).text = SymbolRepo.error ?: "币安 USDⓈ-M 合约"
+                renderSearch(input.text.toString())
+            }
+        }
+        if (SymbolRepo.loading) findViewById<TextView>(R.id.symbol_status).text = "正在更新合约列表…"
+    }
+
     private fun renderSearch(keyword: String) {
         val kw = keyword.trim()
         searchResults.removeAllViews()
@@ -169,7 +187,16 @@ class MainActivity : AppCompatActivity() {
         }
         val results = SymbolRepo.search(kw, limit = 8)
         if (results.isEmpty()) {
-            searchResults.visibility = android.view.View.GONE
+            val hint = TextView(this).apply {
+                text = if (SymbolRepo.loading) "正在更新合约列表…" else SymbolRepo.error
+                    ?: "没有找到可交易的合约，请尝试完整代码（如 MU、SNDK、SKHYNIX）"
+                textSize = 12f
+                setTextColor(getColorCompat(R.color.text_dim))
+                val pad = (12 * resources.displayMetrics.density).toInt()
+                setPadding(pad, pad, pad, pad)
+            }
+            searchResults.addView(hint)
+            searchResults.visibility = android.view.View.VISIBLE
             return
         }
         val owned = adapter.currentSymbols()
@@ -177,7 +204,7 @@ class MainActivity : AppCompatActivity() {
             val row = LayoutInflater.from(this)
                 .inflate(R.layout.item_search, searchResults, false)
             row.findViewById<TextView>(R.id.s_base).text = info.base
-            row.findViewById<TextView>(R.id.s_quote).text = info.quote
+            row.findViewById<TextView>(R.id.s_quote).text = "${info.quote} · 合约"
             val addLabel = row.findViewById<TextView>(R.id.s_add)
             val already = owned.contains(info.symbol)
             addLabel.text = if (already) "已添加" else "+ 添加"
@@ -314,6 +341,12 @@ class MainActivity : AppCompatActivity() {
             btnFloat.text = if (floatingRunningFlag) getString(R.string.stop_float)
             else getString(R.string.start_float)
         }
+        refreshHandler.post(refreshTask)
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(refreshTask)
+        super.onPause()
     }
 
     override fun onDestroy() {

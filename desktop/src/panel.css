@@ -129,8 +129,8 @@ body {
   border-radius: 10px;
   padding: 10px 12px;
 }
-.watch-item .info { display: flex; flex-direction: column; gap: 1px; width: 70px; flex-shrink: 0; }
-.watch-item .coin { font-size: 14px; font-weight: 600; }
+.watch-item .info { display: flex; flex-direction: column; gap: 1px; width: 100px; min-width: 0; flex-shrink: 0; }
+.watch-item .coin { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .watch-item .pair { font-size: 10px; color: var(--text-dim2); }
 .watch-item .spark-wrap {
   flex: 1;
@@ -140,7 +140,7 @@ body {
   min-width: 0;
   padding: 0 8px;
 }
-.watch-item .spark { display: block; opacity: 0.9; }
+.watch-item .spark { display: block; max-width: 100%; opacity: 0.9; }
 .watch-item .right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .watch-item .price { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--text-dim); width: 116px; text-align: right; white-space: nowrap; }
 .watch-item .del {
@@ -179,6 +179,8 @@ body {
 }
 .search-results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .search-results:empty { margin-top: 0; }
+.symbols-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--text-dim); }
+.symbols-meta button { flex-shrink: 0; color: var(--accent); background: transparent; border: 0; padding: 4px; cursor: pointer; }
 .result-item {
   display: flex; align-items: center; justify-content: space-between;
   padding: 9px 12px;

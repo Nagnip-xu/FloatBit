@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const markets = require('./markets');
 
 // ---------- 配置持久化 ----------
 const CONFIG_PATH = path.join(app.getPath('userData'), 'floatbit-config.json');
@@ -42,13 +43,15 @@ let collapsed = false; // 是否处于迷你球状态
 // 交易对列表缓存 (用于主面板的搜索与添加)
 let symbolsCache = null;
 let symbolsCacheTime = 0;
+let symbolsRequest = null;
+const sourceCatalogs = {};
+let symbolsErrors = [];
 
-// ---------- 行情请求 (币安公共接口, 无需密钥) ----------
-// 行情专用域名: 官方说明仅服务公共数据、免认证、速度快
-const BN_HOST = 'https://data-api.binance.vision';
-const TICKER_URL = `${BN_HOST}/api/v3/ticker/24hr`;
-const KLINES_URL = `${BN_HOST}/api/v3/klines`;
-const EXCHANGE_INFO_URL = `${BN_HOST}/api/v3/exchangeInfo`;
+// ---------- 币安 USDⓈ-M 合约公共行情，无需密钥 ----------
+function marketUrl(id, resource) {
+  const { market, symbol } = markets.parse(id);
+  return `${markets.sources[market].rest}/${resource}?symbol=${encodeURIComponent(symbol)}`;
+}
 
 // 通用 GET 请求 (Electron net, 走 Chromium 网络栈)
 function netGet(url) {
@@ -68,7 +71,10 @@ function netGet(url) {
         if (settled) return;
         settled = true;
         try {
-          resolve(JSON.parse(body));
+          const data = JSON.parse(body);
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(data.msg || `HTTP ${response.statusCode}`));
+          } else resolve(data);
         } catch (e) {
           reject(new Error('解析失败'));
         }
@@ -82,34 +88,37 @@ function netGet(url) {
   });
 }
 
-// 获取全部交易对 (带 60s 缓存) — 币安 exchangeInfo
+// 只加载 USDⓈ-M 合约；请求失败时保留旧列表，并向界面报告错误。
 async function fetchSymbols(force = false) {
   const now = Date.now();
   if (!force && symbolsCache && now - symbolsCacheTime < 60000) {
-    return symbolsCache;
+    return { symbols: symbolsCache, errors: symbolsErrors };
   }
-  try {
-    const json = await netGet(EXCHANGE_INFO_URL);
-    if (json && Array.isArray(json.symbols)) {
-      symbolsCache = json.symbols
-        .filter((s) => s.status === 'TRADING')
-        .map((s) => ({
-          symbol: s.symbol,
-          base: s.baseAsset,
-          quote: s.quoteAsset
-        }));
-      symbolsCacheTime = now;
-    }
-  } catch (e) {
-    console.error('获取交易对失败:', e.message);
-  }
-  return symbolsCache || [];
+  if (symbolsRequest) return symbolsRequest;
+  symbolsRequest = (async () => {
+    const errors = [];
+    await Promise.all(Object.entries(markets.sources).map(async ([market, source]) => {
+      try {
+        const list = markets.catalog(await netGet(`${source.rest}/exchangeInfo`));
+        if (!list.length) throw new Error('交易对列表为空');
+        sourceCatalogs[market] = list;
+      } catch (e) {
+        errors.push(`${source.label}列表更新失败`);
+        console.error(`${source.label}列表更新失败:`, e.message);
+      }
+    }));
+    symbolsCache = Object.values(sourceCatalogs).flat();
+    symbolsErrors = errors;
+    symbolsCacheTime = Date.now();
+    return { symbols: symbolsCache, errors };
+  })();
+  try { return await symbolsRequest; } finally { symbolsRequest = null; }
 }
 
 // 获取 K线 收盘价序列 (用于 sparkline 走势图) — 币安 klines
 async function fetchKline(symbol, interval = '15m', limit = 30) {
   try {
-    const url = `${KLINES_URL}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`;
+    const url = `${marketUrl(symbol, 'klines')}&interval=${interval}&limit=${limit}`;
     const json = await netGet(url);
     if (Array.isArray(json)) {
       // 每条: [开始时间, 开, 高, 低, 收, 量, ...]; 取收盘价
@@ -147,7 +156,7 @@ async function getDayOpen(symbol) {
     return cached.open;
   }
   try {
-    const url = `${KLINES_URL}?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=1`;
+    const url = `${marketUrl(symbol, 'klines')}&interval=1d&limit=1`;
     const json = await netGet(url);
     if (Array.isArray(json) && json.length) {
       const candle = json[json.length - 1];
@@ -169,7 +178,7 @@ async function getDayOpen(symbol) {
 // 使用 Electron 的 net 模块 (Chromium 网络栈)
 async function fetchTicker(symbol) {
   try {
-    const d = await netGet(`${TICKER_URL}?symbol=${encodeURIComponent(symbol)}`);
+    const d = await netGet(marketUrl(symbol, 'ticker/24hr'));
     if (d && d.lastPrice !== undefined) {
       const last = parseFloat(d.lastPrice);
       // 当天涨跌: (最新价 - 当日开盘价) / 当日开盘价
@@ -179,7 +188,7 @@ async function fetchTicker(symbol) {
         ? (last - dayOpen) / dayOpen * 100
         : parseFloat(d.priceChangePercent);
       return {
-        symbol: d.symbol,
+        symbol,
         last,
         high: parseFloat(d.highPrice),
         low: parseFloat(d.lowPrice),
@@ -191,7 +200,7 @@ async function fetchTicker(symbol) {
     // 币安对无效交易对会返回 { code, msg }
     return { symbol, ok: false, error: d && d.msg ? '无此交易对' : '无数据' };
   } catch (e) {
-    return { symbol, ok: false, error: e.message === '超时' ? '超时' : '网络错误' };
+    return { symbol, ok: false, error: /Invalid symbol/i.test(e.message) ? '无此合约' : e.message === '超时' ? '超时' : '网络错误' };
   }
 }
 
@@ -203,16 +212,13 @@ async function fetchAll() {
 }
 
 // ========== WebSocket 实时行情 (币安, 行情专用域名) ==========
-const WS_BASE = 'wss://data-stream.binance.vision/stream';
-let ws = null;
-let wsReconnectTimer = null;
+const sockets = new Map();
+const reconnectTimers = new Map();
 let wsPushTimer = null;
-let wsConnected = false;
 const tickerCache = {}; // { symbol: 标准化行情对象 }
 
 // 用 WS 推送的最新价 + 当日开盘价 计算"当天涨跌幅"
-function buildTickerFromWs(d) {
-  const symbol = d.s;
+function buildTickerFromWs(d, symbol) {
   const last = parseFloat(d.c);
   const dayOpen = dayOpenCache[symbol] && dayOpenCache[symbol].dayStart === utcDayStart()
     ? dayOpenCache[symbol].open
@@ -243,57 +249,63 @@ function scheduleTickerPush() {
 }
 
 function wsStreamsParam(symbols) {
-  return symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
+  return symbols.map((s) => `${markets.parse(s).symbol.toLowerCase()}@ticker`).join('/');
 }
 
 function connectWs() {
+  reconnectTimers.forEach(clearTimeout);
+  reconnectTimers.clear();
+  sockets.forEach((sock) => { sock.removeAllListeners(); sock.terminate(); });
+  sockets.clear();
+  for (const market of Object.keys(markets.sources)) connectMarket(market);
+}
+
+function connectMarket(market) {
   const WebSocket = require('ws');
-  if (ws) { try { ws.removeAllListeners(); ws.terminate(); } catch {} ws = null; }
-  if (!config.symbols.length) return;
+  const symbols = config.symbols.filter((s) => markets.parse(s).market === market);
+  if (!symbols.length) return;
+  const previous = sockets.get(market);
+  if (previous) { previous.removeAllListeners(); previous.terminate(); }
 
   // 预取当日开盘价 (用于精确的当日涨跌), 不阻塞连接
-  config.symbols.forEach((s) => { getDayOpen(s).catch(() => {}); });
+  symbols.forEach((s) => { getDayOpen(s).catch(() => {}); });
 
-  const url = `${WS_BASE}?streams=${wsStreamsParam(config.symbols)}`;
+  const url = `${markets.sources[market].ws}?streams=${wsStreamsParam(symbols)}`;
   let sock;
   try {
     sock = new WebSocket(url, { handshakeTimeout: 10000 });
   } catch (e) {
-    scheduleReconnect();
+    scheduleReconnect(market);
     return;
   }
-  ws = sock;
-
-  sock.on('open', () => {
-    wsConnected = true;
-  });
+  sockets.set(market, sock);
   sock.on('message', (buf) => {
     try {
       const msg = JSON.parse(buf.toString());
       const d = msg.data;
       if (d && d.e === '24hrTicker' && d.s) {
-        tickerCache[d.s] = buildTickerFromWs(d);
+        const id = markets.id(d.s);
+        if (!config.symbols.includes(id)) return;
+        tickerCache[id] = buildTickerFromWs(d, id);
         scheduleTickerPush();
       }
     } catch {}
   });
   sock.on('close', () => {
-    wsConnected = false;
-    if (ws === sock) scheduleReconnect();
+    if (sockets.get(market) === sock) scheduleReconnect(market);
   });
   sock.on('error', () => {
-    wsConnected = false;
     try { sock.terminate(); } catch {}
-    if (ws === sock) scheduleReconnect();
+    if (sockets.get(market) === sock) scheduleReconnect(market);
   });
 }
 
-function scheduleReconnect() {
-  if (wsReconnectTimer) return;
-  wsReconnectTimer = setTimeout(() => {
-    wsReconnectTimer = null;
-    connectWs();
-  }, 3000);
+function scheduleReconnect(market) {
+  if (reconnectTimers.has(market)) return;
+  reconnectTimers.set(market, setTimeout(() => {
+    reconnectTimers.delete(market);
+    connectMarket(market);
+  }, 3000));
 }
 
 // 自选变化时重新订阅
@@ -562,7 +574,7 @@ function createTray() {
       { type: 'separator' },
       {
         label: 'API 文档',
-        click: () => shell.openExternal('https://developers.binance.com/docs/binance-spot-api-docs/rest-api')
+        click: () => shell.openExternal('https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Exchange-Information')
       },
       { type: 'separator' },
       { label: '退出 FloatBit', click: () => app.quit() }
@@ -579,7 +591,7 @@ ipcMain.handle('get-tickers', async () => fetchAll());
 
 ipcMain.handle('get-config', () => config);
 
-ipcMain.handle('get-symbols', async () => fetchSymbols());
+ipcMain.handle('get-symbols', async (_evt, force) => fetchSymbols(force === true));
 
 ipcMain.handle('get-klines', async (_evt, symbols) => fetchKlinesFor(symbols || []));
 
@@ -645,6 +657,12 @@ if (!gotLock) {
     ensureMini();
     // 启动 WebSocket 实时行情
     connectWs();
+    // WS 尚未就绪或断线时，以 REST 提供可用行情。
+    setInterval(() => {
+      if ([...sockets.values()].some((sock) => sock.readyState !== 1)) {
+        fetchAll().then(scheduleTickerPush).catch(() => {});
+      }
+    }, 15000);
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
