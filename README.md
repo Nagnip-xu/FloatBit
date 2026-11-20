@@ -16,6 +16,10 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 行情来自币安 USDⓈ-M 合约公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
 
+## Android 1.2.1 更新
+
+修复手机悬浮窗价格显示为 `608…`、`749…` 的问题：价格列按完整内容计算宽度，涨跌幅列也可以随内容伸展；保留紧凑尺寸、单行显示及原有缩小/收起操作。增加 MU/ZEC、带千分位的长价格、行情到达后的重新测量和系统大字号布局回归验证。[构建与 19 项测试均通过](https://github.com/Nagnip-xu/FloatBit/actions/runs/44786640182)。
+
 ## 1.2.0 更新（Windows / Android）
 
 - **实时成交推送**：两端同时订阅合约 `@aggTrade` 与 `@ticker`，成交更新价格、ticker 补充统计；界面每 50ms 合并显示最新数据，不再依靠 5 秒轮询刷新价格。
@@ -43,7 +47,9 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 ## 界面预览
 
-以下为项目中的真实桌面端截图，图中行情为截图时的数据。
+桌面预览为项目中的真实截图，图中行情为截图时的数据。下方安卓浮窗为 1.2.1 的 Android 布局渲染验证，使用示例数值。
+
+<p><img src="website/shots/android-overlay-1.2.1.png" width="220" alt="安卓紧凑浮窗完整显示 MU 608.12、ZEC 749.34，示例数值" /></p>
 
 <table>
   <tr>
@@ -81,9 +87,9 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 | 平台 | 安装包 | 当前版本 | 大小与要求 |
 | --- | --- | --- | --- |
 | Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.2.0.exe) | 1.2.0 | 约 75 MiB；Windows 10 / 11，x64 |
-| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.2.0) | 1.2.0（versionCode 4） | 约 6.2 MiB；Android 7.0 / API 24 及以上 |
+| Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.2.1) | 1.2.1（versionCode 5） | 约 6.2 MiB；Android 7.0 / API 24 及以上 |
 
-Android 当前提供 **debug 构建**。1.2.0 沿用官网 1.1.0 / 1.1.1 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。本次两端统一为 1.2.0。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
+Android 当前提供 **debug 构建**。1.2.1 沿用官网 1.1.0 / 1.1.1 / 1.2.0 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。当前桌面端为 1.2.0，安卓端为 1.2.1。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
 
 **Windows 使用：**
 
