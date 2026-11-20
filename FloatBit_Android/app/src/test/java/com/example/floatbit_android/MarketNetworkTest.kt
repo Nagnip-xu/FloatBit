@@ -104,6 +104,9 @@ class MarketNetworkTest {
             server.url("/cdn/fapi/v1")
         }).get("exchangeInfo") { callback.countDown() }
         assertTrue(lookup.await(3, TimeUnit.SECONDS))
+        // Lookup now starts in parallel; ensure the primary has reached the mock
+        // server before cancellation, rather than assuming it already has.
+        assertNotNull(server.takeRequest(3, TimeUnit.SECONDS))
         request.cancel()
         release.countDown()
         assertFalse(callback.await(300, TimeUnit.MILLISECONDS))

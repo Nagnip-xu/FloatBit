@@ -1,4 +1,5 @@
 const https = require('node:https');
+const { createGunzip } = require('node:zlib');
 const REST = 'https://fapi.binance.com/fapi/v1';
 const agents = new Map();
 function agentFor(host) {
@@ -12,11 +13,13 @@ function requestJson(url, { host, signal, timeout = 4500 } = {}) {
     // Node otherwise derives TLS SNI from the overridden Host header. TLS must
     // address/verify the CDN hostname while HTTP routes to the Binance origin.
     const req = https.get(target, { agent: agentFor(target.hostname), signal, servername: target.hostname,
-      headers: { Accept: 'application/json', ...(host ? { Host: host } : {}) } }, res => {
+      headers: { Accept: 'application/json', 'Accept-Encoding': 'gzip', ...(host ? { Host: host } : {}) } }, res => {
       let body = '';
-      res.setEncoding('utf8');
-      res.on('error', reject); res.on('data', data => { body += data; if (body.length > 16000000) req.destroy(new Error('响应过大')); });
-      res.on('end', () => {
+      const stream = res.headers['content-encoding'] === 'gzip' ? res.pipe(createGunzip()) : res;
+      stream.setEncoding('utf8');
+      res.on('error', reject);
+      stream.on('error', reject); stream.on('data', data => { body += data; if (body.length > 16000000) req.destroy(new Error('响应过大')); });
+      stream.on('end', () => {
         try {
           const data = JSON.parse(body);
           if (res.statusCode < 200 || res.statusCode >= 300) reject(new HttpError(res.statusCode, data));
