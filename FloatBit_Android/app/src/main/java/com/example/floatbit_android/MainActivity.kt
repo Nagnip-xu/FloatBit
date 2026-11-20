@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         )
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        MarketNetwork.configure(Prefs.getProxy(this))
 
         redUp = Prefs.isRedUp(this)
         val symbols = Prefs.getSymbols(this).toMutableList()
@@ -118,7 +119,22 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btn_add).setOnClickListener {
             refreshSymbols(force = true)
         }
-        findViewById<TextView>(R.id.refresh_symbols).setOnClickListener { refreshSymbols(force = true) }
+        findViewById<TextView>(R.id.refresh_symbols).setOnClickListener {
+            client.start()
+            notifyFloating()
+            refreshSymbols(force = true)
+        }
+        findViewById<TextView>(R.id.network_settings).setOnClickListener {
+            NetworkSettingsDialog.show(this) {
+                MarketNetwork.configure(Prefs.getProxy(this))
+                SymbolRepo.resetNetwork()
+                KlineRepo.resetNetwork()
+                adapter.setSymbols(adapter.currentSymbols())
+                client.start()
+                notifyFloating()
+                refreshSymbols(force = true)
+            }
+        }
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 renderSearch(input.text.toString()); true
@@ -340,6 +356,7 @@ class MainActivity : AppCompatActivity() {
             btnFloat.text = if (floatingRunningFlag) getString(R.string.stop_float)
             else getString(R.string.start_float)
         }
+        if (::client.isInitialized) client.start()
         refreshHandler.post(refreshTask)
     }
 

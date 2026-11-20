@@ -24,12 +24,11 @@ class ContractMarketTest {
         assertEquals("wss://fstream.binance.com/market/stream", ContractMarket.WS)
     }
 
-    @Test fun fallbackEndpointsRemainOnContractMarket() {
-        val tickerUrls = ContractMarket.restUrls("ticker/24hr?symbol=MUUSDT")
-        assertTrue(tickerUrls.size >= 2)
-        assertTrue(tickerUrls.all { it.startsWith("https://fapi") && it.contains("/fapi/v1/") })
-        assertTrue(ContractMarket.WS_HOSTS.all {
-            it.startsWith("wss://fstream") && it.endsWith("/market/stream")
-        })
+    @Test fun proxySettingsRejectUrlsAndInvalidPorts() {
+        for ((host, port) in listOf("" to 7890, "http://host" to 7890, "a/b" to 7890,
+            "a b" to 7890, "host" to 0, "host" to 65536)) {
+            assertTrue(runCatching { HttpProxySettings(host, port) }.isFailure)
+        }
+        assertEquals("192.168.1.100", HttpProxySettings("192.168.1.100", 7890).host)
     }
 }

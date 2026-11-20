@@ -55,6 +55,7 @@ class FloatingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        MarketNetwork.configure(Prefs.getProxy(this))
         MainActivity.floatingRunningFlag = true
         startAsForeground()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -238,6 +239,7 @@ class FloatingService : Service() {
         }
         val price = TextView(this).apply {
             maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             text = "…"
             setTextColor(textMain)
             textSize = 12f
@@ -246,6 +248,7 @@ class FloatingService : Service() {
             gravity = Gravity.END
         }
         val change = TextView(this).apply {
+            maxLines = 1
             text = ""
             setTextColor(textDim)
             textSize = 11f

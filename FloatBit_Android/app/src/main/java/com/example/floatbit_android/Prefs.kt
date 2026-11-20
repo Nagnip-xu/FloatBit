@@ -40,6 +40,18 @@ object Prefs {
         prefs(ctx).edit().putInt(KEY_OPACITY, v).apply()
     }
 
+    fun getProxy(ctx: Context): HttpProxySettings? {
+        val host = prefs(ctx).getString("proxy_host", null) ?: return null
+        return runCatching { HttpProxySettings(host, prefs(ctx).getInt("proxy_port", 0)) }.getOrNull()
+    }
+
+    fun setProxy(ctx: Context, proxy: HttpProxySettings?) {
+        prefs(ctx).edit().apply {
+            if (proxy == null) remove("proxy_host").remove("proxy_port")
+            else putString("proxy_host", proxy.host).putInt("proxy_port", proxy.port)
+        }.apply()
+    }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 }

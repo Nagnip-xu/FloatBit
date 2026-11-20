@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="填写可从手机访问的 HTTP 代理。HTTPS 行情和实时推送都会通过该代理连接。电脑上的代理需允许局域网访问；127.0.0.1 指手机自身。"
+        android:textSize="13sp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:labelFor="@+id/proxy_host"
+        android:text="代理主机名或 IP" />
+
+    <EditText
+        android:id="@+id/proxy_host"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:hint="例如 192.168.1.100"
+        android:inputType="textUri"
+        android:singleLine="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:labelFor="@+id/proxy_port"
+        android:text="端口" />
+
+    <EditText
+        android:id="@+id/proxy_port"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:hint="例如 7890"
+        android:inputType="number"
+        android:maxLength="5"
+        android:singleLine="true" />
+</LinearLayout>

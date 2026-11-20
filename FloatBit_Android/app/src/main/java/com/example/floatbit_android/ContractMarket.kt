@@ -7,34 +7,6 @@ object ContractMarket {
     const val REST = "https://fapi.binance.com/fapi/v1"
     const val WS = "wss://fstream.binance.com/market/stream"
 
-    /**
-     * 币安 USDⓈ-M 合约的备用入口。
-     *
-     * 手机网络可能只解析/连通其中一个入口，因此所有 REST 请求都按顺序尝试这些地址。
-     * 这些地址仍然全部指向币安合约 API，不包含现货接口。
-     */
-    val REST_HOSTS: List<String> = listOf(
-        REST,
-        "https://fapi1.binance.com/fapi/v1",
-        "https://fapi2.binance.com/fapi/v1",
-        "https://fapi3.binance.com/fapi/v1",
-        "https://fapi4.binance.com/fapi/v1"
-    )
-
-    /** WebSocket 合约行情备用入口；路径必须保留 /market/stream。 */
-    val WS_HOSTS: List<String> = listOf(
-        WS,
-        "wss://fstream1.binance.com/market/stream",
-        "wss://fstream2.binance.com/market/stream",
-        "wss://fstream3.binance.com/market/stream",
-        "wss://fstream4.binance.com/market/stream"
-    )
-
-    fun restUrls(path: String): List<String> {
-        val suffix = path.trimStart('/')
-        return REST_HOSTS.map { "$it/$suffix" }
-    }
-
     private val quotes = listOf("FDUSD", "USDT", "USDC", "USD1", "TUSD", "BUSD", "USD", "BTC", "ETH")
 
     fun normalize(keyword: String): String = keyword.trim().uppercase(Locale.ROOT)
