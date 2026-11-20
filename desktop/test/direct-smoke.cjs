@@ -21,7 +21,7 @@ const rest = Promise.allSettled(symbols.map(async symbol => {
 }));
 setTimeout(async () => {
   live.stop();
-  const snapshots = await rest;
+  const snapshots = (await rest).map(r => r.status === 'fulfilled' ? r : { status: r.status, reason: r.reason.message });
   const report = symbols.map(symbol => {
     const intervals = (gaps[symbol] || []).sort((a, b) => a - b);
     return { symbol, firstMs: first[symbol], trades: counts[symbol] || 0,

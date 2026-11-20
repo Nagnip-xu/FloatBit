@@ -134,7 +134,7 @@ class ContractHttp(
         attempt(base, false)
         if (fallback != null) resolver.execute {
             if (!group.pending()) return@execute
-            val route = runCatching { fallback.invoke() }.getOrNull()
+            val route = runCatching { fallback?.invoke() }.getOrNull()
             if (route == null || route == base) finish(Result.failure(IOException("备用通道解析失败")))
             else if (group.pending()) attempt(route, true)
         }

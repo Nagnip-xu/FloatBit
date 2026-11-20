@@ -9,7 +9,9 @@ class HttpError extends Error { constructor(status, data) { super(data?.msg || `
 function requestJson(url, { host, signal, timeout = 4500 } = {}) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
-    const req = https.get(target, { agent: agentFor(target.hostname), signal,
+    // Node otherwise derives TLS SNI from the overridden Host header. TLS must
+    // address/verify the CDN hostname while HTTP routes to the Binance origin.
+    const req = https.get(target, { agent: agentFor(target.hostname), signal, servername: target.hostname,
       headers: { Accept: 'application/json', ...(host ? { Host: host } : {}) } }, res => {
       let body = '';
       res.setEncoding('utf8');
