@@ -32,5 +32,40 @@ jobs:
         with:
           # 只发布 website 目录作为站点根
           path: website
+      # 部分运行中产物的 Twirp 列表为空，但 REST 列表正常；按当前 run_id 获取产物。
       - id: deployment
-        uses: actions/deploy-pages@v5
+        name: 通过 GitHub REST API 部署 Pages
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const repo = context.repo;
+            let artifact;
+            for (let attempt = 0; attempt < 10; attempt++) {
+              const {data} = await github.rest.actions.listWorkflowRunArtifacts({
+                ...repo, run_id: context.runId
+              });
+              artifact = data.artifacts.find(item => item.name === 'github-pages' && !item.expired);
+              if (artifact) break;
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            if (!artifact) throw new Error('当前工作流没有可发布的 github-pages 产物');
+            core.info(`发布产物 ${artifact.id}`);
+            const {data: deployment} = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+              ...repo,
+              artifact_id: artifact.id,
+              pages_build_version: context.sha,
+              oidc_token: await core.getIDToken()
+            });
+            core.setOutput('page_url', deployment.page_url);
+            for (let attempt = 0; attempt < 60; attempt++) {
+              const {data: status} = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{deploymentId}', {
+                ...repo, deploymentId: deployment.id
+              });
+              core.info(`Pages: ${status.status}`);
+              if (status.status === 'succeed') return;
+              if (status.error?.message || /failed|cancelled|lost|timeout/.test(status.status)) {
+                throw new Error(status.error?.message || status.status);
+              }
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            throw new Error('Pages 部署等待超时，请检查部署状态');
