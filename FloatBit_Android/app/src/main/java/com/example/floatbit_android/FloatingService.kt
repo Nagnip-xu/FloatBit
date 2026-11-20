@@ -35,15 +35,11 @@ class FloatingService : Service() {
     private var minimized = false
     private var edgeAnimator: android.animation.ValueAnimator? = null
     private lateinit var btnMini: TextView
-    private val rows = HashMap<String, RowViews>()
+    private val rows = HashMap<String, FloatingTickerRow>()
     private val rowViews = ArrayList<View>() // 各行容器, 用于"缩小"时只显示第一行
 
     private val green = Color.parseColor("#18C08A")
     private val red = Color.parseColor("#F2566A")
-    private val textMain = Color.parseColor("#F2F4F8")
-    private val textDim = Color.parseColor("#8B93A7")
-
-    private data class RowViews(val price: TextView, val change: TextView)
 
     companion object {
         private const val CHANNEL_ID = "floatbit_overlay"
@@ -215,53 +211,9 @@ class FloatingService : Service() {
     }
 
     private fun addRow(symbol: String) {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.topMargin = dp(3)
-            layoutParams = lp
-        }
-        val coin = TextView(this).apply {
-            text = ContractMarket.coin(symbol)
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            contentDescription = text
-            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(this, 9, 12, 1,
-                android.util.TypedValue.COMPLEX_UNIT_SP)
-            setTextColor(textMain)
-            textSize = 12f
-            val lp = LinearLayout.LayoutParams(dp(40), LinearLayout.LayoutParams.WRAP_CONTENT)
-            layoutParams = lp
-        }
-        val price = TextView(this).apply {
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            text = "…"
-            setTextColor(textMain)
-            textSize = 12f
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            layoutParams = lp
-            gravity = Gravity.END
-        }
-        val change = TextView(this).apply {
-            maxLines = 1
-            text = ""
-            setTextColor(textDim)
-            textSize = 11f
-            val lp = LinearLayout.LayoutParams(dp(54), LinearLayout.LayoutParams.WRAP_CONTENT)
-            lp.marginStart = dp(8)
-            layoutParams = lp
-            gravity = Gravity.END
-        }
-        row.addView(coin)
-        row.addView(price)
-        row.addView(change)
+        val row = FloatingTickerRow(this, symbol)
         listContainer.addView(row)
-        rows[symbol] = RowViews(price, change)
+        rows[symbol] = row
         rowViews.add(row)
     }
 

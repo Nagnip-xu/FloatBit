@@ -2,12 +2,19 @@ name: 构建 FloatBit 安装包
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: 选择要构建的平台
+        type: choice
+        default: both
+        options: [both, android, windows]
 
 permissions:
   contents: read
 
 jobs:
   android:
+    if: inputs.platform != 'windows'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -25,8 +32,18 @@ jobs:
           name: FloatBit-Android
           path: FloatBit_Android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: 保存 Android 布局验证图与测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FloatBit-Android-Checks
+          path: |
+            FloatBit_Android/app/build/reports/overlay/*.png
+            FloatBit_Android/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
 
   windows:
+    if: inputs.platform != 'android'
     runs-on: windows-latest
     timeout-minutes: 20
     env:
