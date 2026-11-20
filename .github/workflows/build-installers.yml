@@ -46,6 +46,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run dist
+      - name: 静默安装、覆盖升级、启动与卸载验证
+        run: ./build/smoke-install.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: FloatBit-Windows

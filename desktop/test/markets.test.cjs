@@ -29,29 +29,30 @@ function harness() {
     terminate() { this.readyState = 3; }
   }
   const electron = {
-    app: { getPath: () => '.', requestSingleInstanceLock: () => false, quit() {} },
-    ipcMain: { handle: (name, handler) => handlers.set(name, handler), on() {} },
-    net: { request({ url }) {
-      const request = new EventEmitter();
-      request.setHeader = () => {}; request.abort = () => {};
-      request.end = () => queueMicrotask(() => {
-        urls.push(url);
-        const result = responder(new URL(url));
-        const response = new EventEmitter(); response.statusCode = result.code === -1121 ? 400 : 200;
-        request.emit('response', response);
-        response.emit('data', Buffer.from(JSON.stringify(result))); response.emit('end');
-      });
-      return request;
-    } }
+    app: { getPath: () => '.', requestSingleInstanceLock: () => false, quit() {}, on() {} },
+    ipcMain: { handle: (name, handler) => handlers.set(name, handler), on() {} }
   };
+  class ContractNetwork {
+    async getJson(url) {
+      urls.push(url);
+      const result = await responder(new URL(url));
+      if (result.code) throw Object.assign(new Error(result.msg || 'API error'), { code: result.code });
+      return result;
+    }
+  }
+  const realLive = require('../src/live-market');
+  class LiveMarket extends realLive.LiveMarket {
+    constructor(options) { super({ ...options, createSocket: url => new Socket(url) }); }
+  }
   const context = vm.createContext({
     require: (name) => name === 'electron' ? electron : name === 'ws' ? Socket : name === './markets' ? markets :
+      name === './market-network' ? { ContractNetwork } : name === './live-market' ? { ...realLive, LiveMarket } :
       name === 'fs' ? { readFileSync() { throw new Error('No config'); }, writeFileSync() {} } : require(name),
     __dirname: path.join(__dirname, '../src'), console: { error() {} },
-    setTimeout: () => 1, clearTimeout() {}, setInterval() {}
+    setTimeout: () => 1, clearTimeout() {}, setInterval() {}, clearInterval() {}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8') +
-    '\nglobalThis.subject = { fetchSymbols, fetchTicker, fetchKline, connectWs, resubscribeWs, config, tickerCache };', context);
+    '\nglobalThis.subject = { fetchSymbols, fetchTicker, fetchKline, connectWs, resubscribeWs, config, tickerCache, live, getDayOpen };', context);
   return { subject: context.subject, urls, sockets, setResponse: (fn) => { responder = fn; } };
 }
 
@@ -73,6 +74,8 @@ test('价格、日线与走势图均路由至合约接口，现货专有代码�
   h.setResponse((url) => url.searchParams.get('symbol') === 'NVDABUSDT' ? { code: -1121, msg: 'Invalid symbol.' } :
     url.pathname.endsWith('/klines') ? [[Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()), '100', '120', '90', '110']] :
       { symbol: url.searchParams.get('symbol'), lastPrice: '110', priceChangePercent: '8', openPrice: '101', highPrice: '120', lowPrice: '90' });
+  h.subject.config.symbols = ['MUUSDT', 'NVDABUSDT'];
+  await h.subject.getDayOpen('MUUSDT');
   const t = await h.subject.fetchTicker('MUUSDT');
   assert.equal(t.ok, true); assert.equal(t.symbol, 'MUUSDT'); assert.equal(t.last, 110);
   assert.ok(Math.abs(t.changePct - 10) < 0.0001);
@@ -84,11 +87,26 @@ test('价格、日线与走势图均路由至合约接口，现货专有代码�
 test('WebSocket 订阅与改选只使用合约流，保留完整长代码', () => {
   const h = harness();
   h.subject.config.symbols = ['MUUSDT', 'SKHYNIXUSDT']; h.subject.connectWs();
-  assert.equal(h.sockets[0].url, 'wss://fstream.binance.com/market/stream?streams=muusdt@ticker/skhynixusdt@ticker');
-  h.sockets[0].emit('message', Buffer.from(JSON.stringify({ data: { e: '24hrTicker', s: 'SKHYNIXUSDT', c: '830.91', P: '-2.435' } })));
+  assert.equal(h.sockets[0].url, 'wss://fstream.binance.com/market/stream?streams=muusdt@aggTrade/muusdt@ticker/skhynixusdt@aggTrade/skhynixusdt@ticker');
+  h.sockets[0].emit('message', Buffer.from(JSON.stringify({ data: { e: '24hrTicker', s: 'SKHYNIXUSDT', c: '830.91', P: '-2.435', C: 200, o: '850' } })));
   assert.equal(h.subject.tickerCache.SKHYNIXUSDT.last, 830.91);
   h.subject.config.symbols = ['SNDKUSDT']; h.subject.resubscribeWs();
   assert.equal(h.sockets[0].readyState, 3);
-  assert.equal(h.sockets[1].url, 'wss://fstream.binance.com/market/stream?streams=sndkusdt@ticker');
+  assert.equal(h.sockets[2].url, 'wss://fstream.binance.com/market/stream?streams=sndkusdt@aggTrade/sndkusdt@ticker');
   assert.equal(h.subject.tickerCache.SKHYNIXUSDT, undefined);
+  h.subject.live.stop();
+});
+
+
+test('slow daily candle does not block the first price or other symbols', async () => {
+  const h = harness();
+  h.subject.config.symbols = ['MUUSDT'];
+  h.setResponse(url => url.pathname.endsWith('/klines') ? new Promise(() => {}) :
+    { lastPrice: '110', openPrice: '100', priceChangePercent: '10', closeTime: 200 });
+  h.subject.connectWs();
+  try {
+    await h.subject.fetchTicker('MUUSDT');
+    assert.equal(h.subject.tickerCache.MUUSDT.last, 110);
+    assert.equal(h.subject.tickerCache.MUUSDT.changePct, 10);
+  } finally { h.subject.live.stop(); }
 });

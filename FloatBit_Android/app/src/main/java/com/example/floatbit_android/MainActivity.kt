@@ -64,9 +64,13 @@ class MainActivity : AppCompatActivity() {
         adapter.setSymbols(symbols)
         setupDragSort(list)
 
-        client = MarketClient(symbols) { ticker -> adapter.updateTicker(ticker) }
-        client.start()
-
+        client = MarketClient(symbols, onState = { state ->
+            findViewById<TextView>(R.id.market_state).text = when (state) {
+                "live" -> "合约成交实时推送 · 作者 Nagnip"
+                "reconnecting" -> "实时通道重连中 · REST 快照备用"
+                else -> "连接合约实时通道中…"
+            }
+        }) { ticker -> adapter.updateTicker(ticker) }
         setupHeader()
         setupHotCoins()
     }
@@ -120,7 +124,7 @@ class MainActivity : AppCompatActivity() {
             refreshSymbols(force = true)
         }
         findViewById<TextView>(R.id.refresh_symbols).setOnClickListener {
-            client.start()
+            client.refresh()
             notifyFloating()
             refreshSymbols(force = true)
         }
@@ -130,7 +134,7 @@ class MainActivity : AppCompatActivity() {
                 SymbolRepo.resetNetwork()
                 KlineRepo.resetNetwork()
                 adapter.setSymbols(adapter.currentSymbols())
-                client.start()
+                client.refresh()
                 notifyFloating()
                 refreshSymbols(force = true)
             }

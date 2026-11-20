@@ -5,7 +5,11 @@ data class Ticker(
     val symbol: String,      // 如 BTCUSDT
     val last: Double,        // 最新价
     val changePct: Double,   // 24h 涨跌幅 (百分比, 如 1.5 表示 +1.5%)
-    val error: String? = null
+    val error: String? = null,
+    val eventTime: Long = 0,
+    val open: Double = Double.NaN,
+    val receivedAt: Long = 0,
+    val source: String = "snapshot"
 ) {
     /** 基础币名, 如 BTC */
     val coin: String
@@ -25,6 +29,7 @@ data class Ticker(
 
     /** 格式化后的涨跌幅, 如 +1.50% */
     fun formatChange(): String {
+        if (!changePct.isFinite()) return ""
         val sign = if (changePct >= 0) "+" else ""
         return "$sign%.2f%%".format(changePct)
     }

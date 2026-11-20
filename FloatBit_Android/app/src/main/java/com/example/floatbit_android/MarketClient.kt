@@ -3,136 +3,116 @@ package com.example.floatbit_android
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
-/** 合约 WebSocket + REST 快照；断线时每 5 秒轮询兜底，每个合约最多一个在途请求。 */
+/** 成交实时推送驱动价格，REST 仅提供首值或断线补救，界面最多每 50ms 合并一次。 */
 class MarketClient(
     private var symbols: List<String>,
+    private val onState: (String) -> Unit = {},
     private val onUpdate: (Ticker) -> Unit
 ) {
     private val main = Handler(Looper.getMainLooper())
-    private var ws: WebSocket? = null
+    private var stream: ContractStream? = null
     private var stopped = true
-    private var connected = false
+    private var state = "connecting"
     private var generation = 0
-    private var reconnecting = false
-    private val received = HashSet<String>()
-    private val liveTimes = HashMap<String, Long>()
+    private var activeNetwork = MarketNetwork.client
+    private val values = HashMap<String, Ticker>()
+    private val pending = HashMap<String, Ticker>()
+    private var scheduled = false
     private val inFlight = HashMap<String, MarketRequest>()
+    private val flush = Runnable {
+        scheduled = false
+        val batch = pending.values.toList()
+        pending.clear()
+        if (!stopped) batch.forEach(onUpdate)
+    }
     private val poll = object : Runnable {
         override fun run() {
             if (stopped) return
-            if (!connected || symbols.any { SystemClock.elapsedRealtime() - (liveTimes[it] ?: 0L) > 15_000 }) {
-                snapshot(generation)
-            }
-            main.postDelayed(this, if (connected) 15_000 else 5_000)
+            snapshot(generation, initial = false)
+            main.postDelayed(this, 5000)
         }
     }
-
-    fun start() {
-        stop()
-        stopped = false
-        received.clear()
-        liveTimes.clear()
-        connect(generation)
-        snapshot(generation)
-        main.postDelayed(poll, 5_000)
+    companion object {
+        // 只复用本进程内缓存；界面会标记缓存，成功连接后立即替换。
+        private val recent = ConcurrentHashMap<String, Ticker>()
     }
-
+    fun start() {
+        if (!stopped) {
+            if (activeNetwork !== MarketNetwork.client) refresh()
+            return
+        }
+        stopped = false
+        activeNetwork = MarketNetwork.client
+        val gen = ++generation
+        symbols.forEach { symbol -> recent[symbol]?.let {
+            values[symbol] = it.copy(source = "cached")
+            publish(values.getValue(symbol))
+        } }
+        stream = ContractStream({ activeNetwork }, { data ->
+            main.post {
+                if (!stopped && gen == generation && data.optString("s") in symbols) {
+                    val symbol = data.getString("s")
+                    MarketPrices.live(values[symbol], data, SystemClock.elapsedRealtime())?.let(::publish)
+                }
+            }
+        }, { value -> main.post {
+            if (!stopped && gen == generation) { state = value; onState(value) }
+        } }).also { it.start(symbols) }
+        snapshot(gen, initial = true)
+        main.postDelayed(poll, 5000)
+    }
+    fun refresh() { stop(); start() }
     fun stop() {
         stopped = true
-        connected = false
-        reconnecting = false
         generation++
         main.removeCallbacksAndMessages(null)
-        ws?.cancel()
-        ws = null
+        scheduled = false
+        pending.clear()
+        stream?.close()
+        stream = null
         inFlight.values.forEach { it.cancel() }
         inFlight.clear()
     }
-
     fun updateSymbols(newSymbols: List<String>) {
-        symbols = newSymbols.toList()
-        start()
+        val changed = symbols.toSet() != newSymbols.toSet()
+        symbols = newSymbols.distinct()
+        values.keys.retainAll(symbols.toSet())
+        if (changed) refresh() else {
+            start()
+            symbols.forEach { values[it]?.let(::publish) }
+        }
     }
-
-    private fun snapshot(gen: Int) {
+    private fun snapshot(gen: Int, initial: Boolean) {
         val requestedAt = SystemClock.elapsedRealtime()
-        val http = ContractHttp(MarketNetwork.client)
-        symbols.filterNot { it in inFlight }.forEach { symbol ->
+        val http = ContractHttp(activeNetwork)
+        symbols.filter { it !in inFlight && (initial || state != "live" ||
+            requestedAt - (values[it]?.receivedAt ?: 0L) > 15000) }.forEach { symbol ->
             inFlight[symbol] = http.get("ticker/24hr?symbol=$symbol") { result ->
                 val ticker = try {
                     val data = JSONObject(result.getOrThrow())
                     val last = data.getString("lastPrice").toDouble()
                     val change = data.getString("priceChangePercent").toDouble()
-                    require(last.isFinite() && change.isFinite())
-                    Ticker(symbol, last, change)
-                } catch (e: Exception) {
-                    Ticker(symbol, Double.NaN, Double.NaN, MarketErrors.label(e))
-                }
+                    require(last.isFinite() && last > 0 && change.isFinite())
+                    Ticker(symbol, last, change, eventTime = data.optLong("closeTime"),
+                        open = data.optDouble("openPrice"), receivedAt = SystemClock.elapsedRealtime(), source = "snapshot")
+                } catch (e: Exception) { Ticker(symbol, Double.NaN, Double.NaN, MarketErrors.label(e)) }
                 main.post {
-                    if (!stopped && generation == gen) {
+                    if (!stopped && generation == gen && symbol in symbols) {
                         inFlight.remove(symbol)
-                        publish(ticker, gen, requestedAt)
+                        publish(MarketPrices.snapshot(values[symbol], ticker, requestedAt))
                     }
                 }
             }
         }
     }
-
-    private fun publish(ticker: Ticker, gen: Int, snapshotAt: Long? = null) {
-        main.post {
-            if (stopped || generation != gen || !symbols.contains(ticker.symbol)) return@post
-            if (ticker.last.isNaN() && ticker.symbol in received) return@post
-            if (snapshotAt != null && (liveTimes[ticker.symbol] ?: 0L) > snapshotAt) return@post
-            if (snapshotAt == null && !ticker.last.isNaN()) liveTimes[ticker.symbol] = SystemClock.elapsedRealtime()
-            if (!ticker.last.isNaN()) received.add(ticker.symbol)
-            onUpdate(ticker)
-        }
-    }
-
-    private fun connect(gen: Int) {
-        if (stopped || generation != gen || symbols.isEmpty()) return
-        val streams = symbols.joinToString("/") { "${it.lowercase(Locale.ROOT)}@ticker" }
-        ws = MarketNetwork.client.newWebSocket(
-            Request.Builder().url("${ContractMarket.WS}?streams=$streams").build(),
-            object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    main.post { if (!stopped && generation == gen && ws === webSocket) connected = true }
-                }
-
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    try {
-                        val data = JSONObject(text).optJSONObject("data") ?: return
-                        if (data.optString("e") != "24hrTicker") return
-                        publish(Ticker(data.getString("s"), data.getString("c").toDouble(),
-                            data.getString("P").toDouble()), gen)
-                    } catch (_: Exception) { }
-                }
-
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) =
-                    scheduleReconnect(gen, webSocket)
-
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) =
-                    scheduleReconnect(gen, webSocket)
-            })
-    }
-
-    private fun scheduleReconnect(gen: Int, socket: WebSocket) {
-        main.post {
-            if (stopped || generation != gen || ws !== socket) return@post
-            connected = false
-            if (reconnecting) return@post
-            reconnecting = true
-            main.postDelayed({
-                reconnecting = false
-                if (!stopped && generation == gen) connect(gen)
-            }, 3_000)
-        }
+    private fun publish(ticker: Ticker) {
+        if (stopped || ticker.symbol !in symbols) return
+        values[ticker.symbol] = ticker
+        if (ticker.last.isFinite()) recent[ticker.symbol] = ticker
+        pending[ticker.symbol] = ticker
+        if (!scheduled) { scheduled = true; main.postDelayed(flush, 50) }
     }
 }

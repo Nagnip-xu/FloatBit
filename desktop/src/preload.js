@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('floatbit', {
   // 数据
   getTickers: () => ipcRenderer.invoke('get-tickers'),
+  getMarketStatus: () => ipcRenderer.invoke('get-market-status'),
+  onMarketStatus: (cb) => ipcRenderer.on('market-status', (_e, status) => cb(status)),
   getConfig: () => ipcRenderer.invoke('get-config'),
   getSymbols: (force = false) => ipcRenderer.invoke('get-symbols', force),
   getKlines: (symbols) => ipcRenderer.invoke('get-klines', symbols),

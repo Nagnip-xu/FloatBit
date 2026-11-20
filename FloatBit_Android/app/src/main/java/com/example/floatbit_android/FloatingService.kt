@@ -267,12 +267,16 @@ class FloatingService : Service() {
 
     private fun startMarket() {
         val symbols = Prefs.getSymbols(this)
-        client = MarketClient(symbols) { t -> updateRow(t) }
+        client = MarketClient(symbols, onState = { state ->
+            rootView.contentDescription = if (state == "live") "合约成交实时推送" else "实时通道连接中，REST 快照备用"
+        }) { t -> updateRow(t) }
         client?.start()
     }
 
     private fun updateRow(t: Ticker) {
         val rv = rows[t.symbol] ?: return
+        rv.price.alpha = if (t.source == "cached") 0.55f else 1f
+        rv.price.contentDescription = "${t.formatPrice()}，${t.source}"
         rv.price.text = if (t.last.isNaN()) t.error ?: "…" else t.formatPrice()
         rv.change.text = if (t.last.isNaN()) "" else t.formatChange()
         val up = t.changePct >= 0

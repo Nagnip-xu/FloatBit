@@ -278,7 +278,8 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:paddingBottom="10dp"
-        android:text="数据来自币安 · 作者 Nagnip"
+        android:id="@+id/market_state"
+        android:text="连接合约实时通道中…"
         android:textColor="@color/text_dim"
         android:textSize="11sp" />
 

@@ -263,7 +263,7 @@ function applyPrices(tickers) {
         : t.last.toPrecision(4);
       const up = t.changePct >= 0;
       const sign = up ? '+' : '';
-      el.innerHTML = `${price} <span style="color:${up ? 'var(--up)' : 'var(--down)'};font-size:11px">${sign}${t.changePct.toFixed(2)}%</span>`;
+      el.innerHTML = `${price} <span style="color:${up ? 'var(--up)' : 'var(--down)'};font-size:11px">${Number.isFinite(t.changePct) ? sign + t.changePct.toFixed(2) + '%' : ''}</span>`;
       el.style.color = 'var(--text)';
     } else {
       el.textContent = t.error || '错误';

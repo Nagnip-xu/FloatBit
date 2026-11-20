@@ -8,7 +8,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * 仅在主域名连接失败时，查询其当前 CNAME，直连币安使用的 CloudFront 分发。
+ * 与主域名同时查询当前 CNAME，直连币安使用的 CloudFront 分发。
  * 不写死分发地址；保留 Host: fapi.binance.com，且仍验证 CDN 的 HTTPS 证书。
  * DNS 服务只收到域名，不接收币种、价格查询或账户信息。
  */
@@ -26,7 +26,7 @@ object BinanceCdnRoute {
         if (now < retryAfter) return null
         retryAfter = now + 15_000
         val answer = runCatching {
-            val dnsClient = client.newBuilder().callTimeout(3, TimeUnit.SECONDS).build()
+            val dnsClient = client.newBuilder().callTimeout(2500, TimeUnit.MILLISECONDS).build()
             val request = Request.Builder()
                 .url("https://doh.pub/dns-query?name=fapi.binance.com&type=CNAME")
                 .header("Accept", "application/dns-json").build()

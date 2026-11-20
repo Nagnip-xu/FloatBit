@@ -1,7 +1,10 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, screen, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const markets = require('./markets');
+const { ContractNetwork } = require('./market-network');
+const { LiveMarket, mergeEvent, mergeSnapshot } = require('./live-market');
+const network = new ContractNetwork();
 
 // ---------- 配置持久化 ----------
 const CONFIG_PATH = path.join(app.getPath('userData'), 'floatbit-config.json');
@@ -53,40 +56,7 @@ function marketUrl(id, resource) {
   return `${markets.sources[market].rest}/${resource}?symbol=${encodeURIComponent(symbol)}`;
 }
 
-// 通用 GET 请求 (Electron net, 走 Chromium 网络栈)
-function netGet(url) {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const request = net.request({ method: 'GET', url });
-    request.setHeader('Accept', 'application/json');
-    const timeout = setTimeout(() => {
-      try { request.abort(); } catch {}
-      if (!settled) { settled = true; reject(new Error('超时')); }
-    }, 10000);
-    request.on('response', (response) => {
-      let body = '';
-      response.on('data', (chunk) => (body += chunk.toString()));
-      response.on('end', () => {
-        clearTimeout(timeout);
-        if (settled) return;
-        settled = true;
-        try {
-          const data = JSON.parse(body);
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(new Error(data.msg || `HTTP ${response.statusCode}`));
-          } else resolve(data);
-        } catch (e) {
-          reject(new Error('解析失败'));
-        }
-      });
-    });
-    request.on('error', (e) => {
-      clearTimeout(timeout);
-      if (!settled) { settled = true; reject(e); }
-    });
-    request.end();
-  });
-}
+const netGet = url => network.getJson(url);
 
 // 只加载 USDⓈ-M 合约；请求失败时保留旧列表，并向界面报告错误。
 async function fetchSymbols(force = false) {
@@ -174,152 +144,81 @@ async function getDayOpen(symbol) {
   return null;
 }
 
-// 使用 Electron 的 net 模块 (Chromium 网络栈), 避免 Node https 被 TLS 指纹拦截
-// 使用 Electron 的 net 模块 (Chromium 网络栈)
-async function fetchTicker(symbol) {
-  try {
-    const d = await netGet(marketUrl(symbol, 'ticker/24hr'));
-    if (d && d.lastPrice !== undefined) {
-      const last = parseFloat(d.lastPrice);
-      // 当天涨跌: (最新价 - 当日开盘价) / 当日开盘价
-      // 拿不到当日开盘价时回退到接口的 24h priceChangePercent
-      const dayOpen = await getDayOpen(symbol);
-      const changePct = (dayOpen && isFinite(dayOpen))
-        ? (last - dayOpen) / dayOpen * 100
-        : parseFloat(d.priceChangePercent);
-      return {
-        symbol,
-        last,
-        high: parseFloat(d.highPrice),
-        low: parseFloat(d.lowPrice),
-        open: parseFloat(d.openPrice),
-        changePct,
-        ok: true
-      };
-    }
-    // 币安对无效交易对会返回 { code, msg }
-    return { symbol, ok: false, error: d && d.msg ? '无此交易对' : '无数据' };
-  } catch (e) {
-    return { symbol, ok: false, error: /Invalid symbol/i.test(e.message) ? '无此合约' : e.message === '超时' ? '超时' : '网络错误' };
-  }
-}
-
-async function fetchAll() {
-  const requestedAt = Date.now();
-  const results = await Promise.all(config.symbols.map(fetchTicker));
-  // 用 REST 结果填充实时缓存 (作为 WS 未就绪时的初值)
-  results.forEach((r) => {
-    if (config.symbols.includes(r.symbol) && (liveTimes[r.symbol] || 0) <= requestedAt) tickerCache[r.symbol] = r;
-  });
-  return results;
-}
-
-// ========== WebSocket 实时行情 (币安, 行情专用域名) ==========
-const sockets = new Map();
-const reconnectTimers = new Map();
+// 价格先显示，日开盘和走势图独立加载，不阻塞首价。
+const tickerCache = {};
 let wsPushTimer = null;
-const tickerCache = {}; // { symbol: 标准化行情对象 }
-const liveTimes = {};
-
-// 用 WS 推送的最新价 + 当日开盘价 计算"当天涨跌幅"
-function buildTickerFromWs(d, symbol) {
-  const last = parseFloat(d.c);
-  const dayOpen = dayOpenCache[symbol] && dayOpenCache[symbol].dayStart === utcDayStart()
-    ? dayOpenCache[symbol].open
-    : null;
-  const changePct = (dayOpen && isFinite(dayOpen))
-    ? (last - dayOpen) / dayOpen * 100
-    : parseFloat(d.P); // 回退到 24h 涨跌幅
-  return {
-    symbol,
-    last,
-    high: parseFloat(d.h),
-    low: parseFloat(d.l),
-    open: parseFloat(d.o),
-    changePct,
-    ok: true
-  };
+let marketStatus = 'connecting';
+let fallbackTimer = null;
+const snapshotRequests = new Map();
+function currentTickers() {
+  return config.symbols.map(symbol => tickerCache[symbol] || { symbol, ok: false, error: '连接中' });
 }
-
-// 把缓存中的行情按当前自选顺序推送给界面 (节流)
 function scheduleTickerPush() {
   if (wsPushTimer) return;
   wsPushTimer = setTimeout(() => {
     wsPushTimer = null;
-    const list = config.symbols.map((s) => tickerCache[s] || { symbol: s, ok: false, error: '连接中' });
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('tickers-update', list);
-    if (panelWindow && !panelWindow.isDestroyed()) panelWindow.webContents.send('tickers-update', list);
-  }, 200);
+    for (const win of [mainWindow, panelWindow]) if (win && !win.isDestroyed()) {
+      win.webContents.send('tickers-update', currentTickers());
+      win.webContents.send('market-status', marketStatus);
+    }
+  }, 50);
 }
-
-function wsStreamsParam(symbols) {
-  return symbols.map((s) => `${markets.parse(s).symbol.toLowerCase()}@ticker`).join('/');
+function dayOpenFor(symbol) {
+  return dayOpenCache[symbol]?.dayStart === utcDayStart() ? dayOpenCache[symbol].open : null;
 }
-
-function connectWs() {
-  reconnectTimers.forEach(clearTimeout);
-  reconnectTimers.clear();
-  sockets.forEach((sock) => { sock.removeAllListeners(); sock.terminate(); });
-  sockets.clear();
-  for (const market of Object.keys(markets.sources)) connectMarket(market);
-}
-
-function connectMarket(market) {
-  const WebSocket = require('ws');
-  const symbols = config.symbols.filter((s) => markets.parse(s).market === market);
-  if (!symbols.length) return;
-  const previous = sockets.get(market);
-  if (previous) { previous.removeAllListeners(); previous.terminate(); }
-
-  // 预取当日开盘价 (用于精确的当日涨跌), 不阻塞连接
-  symbols.forEach((s) => { getDayOpen(s).catch(() => {}); });
-
-  const url = `${markets.sources[market].ws}?streams=${wsStreamsParam(symbols)}`;
-  let sock;
-  try {
-    sock = new WebSocket(url, { handshakeTimeout: 10000 });
-  } catch (e) {
-    scheduleReconnect(market);
-    return;
-  }
-  sockets.set(market, sock);
-  sock.on('message', (buf) => {
+async function fetchTicker(symbol) {
+  if (snapshotRequests.has(symbol)) return snapshotRequests.get(symbol);
+  const requestedAt = Date.now();
+  const operation = (async () => {
+    let snapshot;
     try {
-      const msg = JSON.parse(buf.toString());
-      const d = msg.data;
-      if (d && d.e === '24hrTicker' && d.s) {
-        const id = markets.id(d.s);
-        if (!config.symbols.includes(id)) return;
-        tickerCache[id] = buildTickerFromWs(d, id);
-        liveTimes[id] = Date.now();
+      const d = await netGet(marketUrl(symbol, 'ticker/24hr'));
+      const last = Number(d.lastPrice);
+      if (!(last > 0)) throw new Error('无数据');
+      const anchor = dayOpenFor(symbol) || Number(d.openPrice);
+      snapshot = { symbol, last, open: Number(d.openPrice), high: Number(d.highPrice), low: Number(d.lowPrice),
+        changePct: anchor > 0 ? (last - anchor) / anchor * 100 : Number(d.priceChangePercent),
+        eventTime: Number(d.closeTime) || 0, receivedAt: Date.now(), source: 'snapshot', ok: true };
+    } catch (e) {
+      snapshot = { symbol, ok: false, error: e.code === -1121 ? '无此合约' : e.status === 429 || e.status === 418 ? '请求限流' : '连接失败' };
+    }
+    if (config.symbols.includes(symbol)) {
+      tickerCache[symbol] = mergeSnapshot(tickerCache[symbol], snapshot, requestedAt);
+      scheduleTickerPush();
+      return tickerCache[symbol];
+    }
+  })().finally(() => snapshotRequests.delete(symbol));
+  snapshotRequests.set(symbol, operation);
+  return operation;
+}
+function fetchAll() {
+  // 每个币种独立发布；一个慢请求不会阻塞其他币种，也不会覆盖较新的推送。
+  return Promise.all(config.symbols.filter(s => !tickerCache[s]?.ok || marketStatus !== 'live'
+    || Date.now() - tickerCache[s].receivedAt > 15000).map(fetchTicker));
+}
+const live = new LiveMarket({
+  onStatus(status) { if (marketStatus !== status) { marketStatus = status; scheduleTickerPush(); } },
+  onData(d) {
+    const symbol = markets.id(d.s);
+    if (!config.symbols.includes(symbol)) return;
+    tickerCache[symbol] = { ...mergeEvent(tickerCache[symbol], d, dayOpenFor(symbol)), symbol };
+    scheduleTickerPush();
+  }
+});
+function connectWs() {
+  live.start(config.symbols.map(s => markets.parse(s).symbol));
+  config.symbols.forEach(s => {
+    getDayOpen(s).then(open => {
+      if (open && tickerCache[s]?.ok) {
+        tickerCache[s].changePct = (tickerCache[s].last - open) / open * 100;
         scheduleTickerPush();
       }
-    } catch {}
-  });
-  sock.on('close', () => {
-    if (sockets.get(market) === sock) scheduleReconnect(market);
-  });
-  sock.on('error', () => {
-    try { sock.terminate(); } catch {}
-    if (sockets.get(market) === sock) scheduleReconnect(market);
+    }).catch(() => {});
   });
 }
-
-function scheduleReconnect(market) {
-  if (reconnectTimers.has(market)) return;
-  reconnectTimers.set(market, setTimeout(() => {
-    reconnectTimers.delete(market);
-    connectMarket(market);
-  }, 3000));
-}
-
-// 自选变化时重新订阅
 function resubscribeWs() {
-  // 清掉不再关注的缓存
-  Object.keys(tickerCache).forEach((s) => {
-    if (!config.symbols.includes(s)) { delete tickerCache[s]; delete liveTimes[s]; }
-  });
-  connectWs();
+  for (const s of Object.keys(tickerCache)) if (!config.symbols.includes(s)) delete tickerCache[s];
+  connectWs(); fetchAll().catch(() => {});
 }
 
 // ---------- 窗口 ----------
@@ -592,7 +491,8 @@ function createTray() {
 }
 
 // ---------- IPC ----------
-ipcMain.handle('get-tickers', async () => fetchAll());
+ipcMain.handle('get-tickers', () => { fetchAll().catch(() => {}); return currentTickers(); });
+ipcMain.handle('get-market-status', () => marketStatus);
 
 ipcMain.handle('get-config', () => config);
 
@@ -601,7 +501,7 @@ ipcMain.handle('get-symbols', async (_evt, force) => fetchSymbols(force === true
 ipcMain.handle('get-klines', async (_evt, symbols) => fetchKlinesFor(symbols || []));
 
 ipcMain.handle('set-config', (_evt, patch) => {
-  const prevSymbols = config.symbols.join(',');
+  const prevSymbols = [...config.symbols].sort().join(',');
   config = { ...config, ...patch };
   saveConfig(config);
   if (mainWindow) {
@@ -611,7 +511,7 @@ ipcMain.handle('set-config', (_evt, patch) => {
       mainWindow.setAlwaysOnTop(patch.alwaysOnTop, 'floating');
   }
   // 自选变化 -> 重新订阅 WebSocket
-  if (Array.isArray(patch.symbols) && patch.symbols.join(',') !== prevSymbols) {
+  if (Array.isArray(patch.symbols) && [...patch.symbols].sort().join(',') !== prevSymbols) {
     resubscribeWs();
   }
   notifyConfigChanged();
@@ -662,12 +562,10 @@ if (!gotLock) {
     ensureMini();
     // 启动 WebSocket 实时行情
     connectWs();
-    // WS 尚未就绪或断线时，以 REST 提供可用行情。
-    setInterval(() => {
-      if (config.symbols.some((s) => Date.now() - (liveTimes[s] || 0) > 15000)) {
-        fetchAll().then(scheduleTickerPush).catch(() => {});
-      }
-    }, 15000);
+    fetchAll().catch(() => {});
+    // REST 只负责补齐首值/断线；健康的实时连接不靠轮询驱动价格。
+    fallbackTimer = setInterval(() => fetchAll().catch(() => {}), 5000);
+    powerMonitor.on('resume', () => { connectWs(); fetchAll().catch(() => {}); });
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -678,3 +576,5 @@ if (!gotLock) {
     // 保持后台运行; 退出走托盘菜单
   });
 }
+
+app.on('before-quit', () => { live.stop(); clearTimeout(wsPushTimer); clearInterval(fallbackTimer); });

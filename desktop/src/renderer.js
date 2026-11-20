@@ -86,7 +86,10 @@ function applySparklines() {
       const up = (chg !== undefined && isFinite(chg))
         ? chg >= 0
         : closes[closes.length - 1] >= closes[0];
-      wrap.innerHTML = buildSparkline(closes, up);
+      if (wrap._closes !== closes || wrap._up !== up) {
+        wrap._closes = closes; wrap._up = up;
+        wrap.innerHTML = buildSparkline(closes, up);
+      }
     }
   });
 }
@@ -100,64 +103,53 @@ async function refreshKlines() {
 }
 
 // ---------- 渲染 ----------
+const rows = new Map();
 function render(tickers) {
-  els.list.innerHTML = '';
+  const selected = new Set(tickers.map(t => t.symbol));
+  for (const [symbol, row] of rows) if (!selected.has(symbol)) { row.remove(); rows.delete(symbol); }
+  const empty = els.list.querySelector('.loading');
+  if (empty) empty.remove();
   for (const t of tickers) {
-    if (t.ok && isFinite(t.changePct)) changeMap[t.symbol] = t.changePct;
-    const { coin, pair } = coinName(t.symbol);
-    const row = document.createElement('div');
-    row.className = 'row';
-
-    if (!t.ok) {
-      row.innerHTML = `
-        <div class="sym">
-          <span class="coin" title="${coin}">${coin}</span>
-          <span class="pair">${pair}</span>
-        </div>
-        <div class="right">
-          <span class="price err">${t.error || '错误'}</span>
-        </div>`;
-      els.list.appendChild(row);
-      continue;
+    let row = rows.get(t.symbol);
+    if (!row) {
+      const { coin, pair } = coinName(t.symbol);
+      row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = `<div class="sym"><span class="coin" title="${coin}">${coin}</span><span class="pair">${pair}</span></div>
+        <div class="spark-wrap" data-spark="${t.symbol}"></div><div class="right"><span class="price"></span><span class="chg"></span></div>`;
+      rows.set(t.symbol, row);
     }
-
-    const up = t.changePct >= 0;
-    const prev = lastPrices[t.symbol];
-    if (prev !== undefined && t.last !== prev) {
-      row.classList.add(t.last > prev ? 'flash-up' : 'flash-down');
+    // 只在顺序发生变化时移动已有节点。
+    const position = tickers.indexOf(t);
+    if (els.list.children[position] !== row) els.list.insertBefore(row, els.list.children[position] || null);
+    const price = row.querySelector('.price');
+    const change = row.querySelector('.chg');
+    price.classList.toggle('err', !t.ok);
+    price.textContent = t.ok ? formatPrice(t.last) : t.error || '连接中';
+    price.title = t.source === 'live' ? '合约实时成交' : t.ok ? 'REST 快照，等待实时推送' : price.textContent;
+    if (t.ok) {
+      const prev = lastPrices[t.symbol];
+      if (prev !== undefined && prev !== t.last) {
+        price.animate([{ color: t.last > prev ? 'var(--up)' : 'var(--down)' }, { color: 'var(--text)' }], { duration: 250 });
+      }
+      lastPrices[t.symbol] = t.last;
+      if (isFinite(t.changePct)) changeMap[t.symbol] = t.changePct;
     }
-    lastPrices[t.symbol] = t.last;
-
-    row.innerHTML = `
-      <div class="sym">
-        <span class="coin" title="${coin}">${coin}</span>
-        <span class="pair">${pair}</span>
-      </div>
-      <div class="spark-wrap" data-spark="${t.symbol}"></div>
-      <div class="right">
-        <span class="price">${formatPrice(t.last)}</span>
-        <span class="chg ${up ? 'up' : 'down'}">${formatPct(t.changePct)}</span>
-      </div>`;
-    els.list.appendChild(row);
+    change.textContent = t.ok ? formatPct(t.changePct) : '';
+    change.className = 'chg ' + (t.changePct >= 0 ? 'up' : 'down');
   }
-
-  if (!tickers.length) {
-    els.list.innerHTML = '<div class="loading">点击 ⚙ 添加币种</div>';
-  }
-
-  // 重新应用缓存中的走势图
+  if (!tickers.length) els.list.innerHTML = '<div class="loading">点击 ⚙ 添加币种</div>';
   applySparklines();
 }
-
-function setStatus(ok) {
-  els.status.classList.toggle('off', !ok);
+let streamStatus = 'connecting';
+function setStatus() {
+  els.status.classList.toggle('off', streamStatus !== 'live');
   const d = new Date();
-  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const date = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-  const week = weekdays[d.getDay()];
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  els.updated.textContent = `${date} ${week} ${time}`;
+  const label = streamStatus === 'live' ? '实时' : streamStatus === 'reconnecting' ? '重连中' : '连接中';
+  els.status.title = streamStatus === 'live' ? '合约成交实时推送' : '实时通道连接中，REST 快照备用';
+  els.updated.textContent = `${label} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+api.onMarketStatus(status => { streamStatus = status; setStatus(); });
+api.getMarketStatus().then(status => { streamStatus = status; setStatus(); });
 
 // ---------- 数据 ----------
 // 初始用 REST 拉一次 (秒开), 之后由 WebSocket 实时推送驱动

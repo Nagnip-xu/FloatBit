@@ -87,9 +87,9 @@ class MarketNetworkTest {
         ContractHttp(client, server.url("/fapi/v1"), { server.url("/cdn/fapi/v1") })
             .get("ticker/24hr?symbol=MUUSDT") { result.complete(it) }
         assertTrue(result.get(3, TimeUnit.SECONDS).isSuccess)
-        assertEquals("/fapi/v1/ticker/24hr?symbol=MUUSDT", server.takeRequest().path)
-        val fallbackRequest = server.takeRequest()
-        assertEquals("/cdn/fapi/v1/ticker/24hr?symbol=MUUSDT", fallbackRequest.path)
+        val requests = listOf(server.takeRequest(), server.takeRequest())
+        assertTrue(requests.any { it.path == "/fapi/v1/ticker/24hr?symbol=MUUSDT" })
+        val fallbackRequest = requests.first { it.path!!.startsWith("/cdn/") }
         assertEquals("fapi.binance.com", fallbackRequest.getHeader("Host"))
     }
 

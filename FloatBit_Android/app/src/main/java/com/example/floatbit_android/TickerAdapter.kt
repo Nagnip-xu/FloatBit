@@ -40,8 +40,9 @@ class TickerAdapter(
     }
 
     fun setSymbols(symbols: List<String>) {
+        val existing = items.associateBy { it.symbol }
         items.clear()
-        symbols.forEach { items.add(Ticker(it, Double.NaN, Double.NaN)) }
+        symbols.forEach { items.add(existing[it] ?: Ticker(it, Double.NaN, Double.NaN)) }
         notifyDataSetChanged()
     }
 
@@ -105,6 +106,12 @@ class TickerAdapter(
     }
 
     private fun bindPrice(holder: VH, t: Ticker) {
+        holder.price.contentDescription = when (t.source) {
+            "live" -> "${t.formatPrice()}，实时成交"
+            "cached" -> "${t.formatPrice()}，上次缓存，正在连接"
+            else -> "${t.formatPrice()}，REST 快照"
+        }
+        holder.price.alpha = if (t.source == "cached") 0.55f else 1f
         if (t.last.isNaN()) {
             holder.price.text = t.error ?: "…"
             holder.change.text = ""
