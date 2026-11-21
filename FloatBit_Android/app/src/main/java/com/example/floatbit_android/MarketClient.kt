@@ -6,7 +6,7 @@ import android.os.SystemClock
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
-/** 成交实时推送驱动价格，REST 仅提供首值或断线补救，界面最多每 50ms 合并一次。 */
+/** 成交实时推送驱动价格，REST 仅提供首值或断线补救，界面首值立即显示、后续每秒合并。 */
 class MarketClient(
     private var symbols: List<String>,
     private val onState: (String) -> Unit = {},
@@ -19,15 +19,8 @@ class MarketClient(
     private var generation = 0
     private var activeNetwork = MarketNetwork.client
     private val values = HashMap<String, Ticker>()
-    private val pending = HashMap<String, Ticker>()
-    private var scheduled = false
+    private val publisher = TickerPublisher(main, onUpdate)
     private val inFlight = HashMap<String, MarketRequest>()
-    private val flush = Runnable {
-        scheduled = false
-        val batch = pending.values.toList()
-        pending.clear()
-        if (!stopped) batch.forEach(onUpdate)
-    }
     private val poll = object : Runnable {
         override fun run() {
             if (stopped) return
@@ -69,8 +62,7 @@ class MarketClient(
         stopped = true
         generation++
         main.removeCallbacksAndMessages(null)
-        scheduled = false
-        pending.clear()
+        publisher.reset()
         stream?.close()
         stream = null
         inFlight.values.forEach { it.cancel() }
@@ -82,6 +74,8 @@ class MarketClient(
         values.keys.retainAll(symbols.toSet())
         if (changed) refresh() else {
             start()
+            // 配色/透明度热更新会重建浮窗行，立即补回已有最新值。
+            publisher.reset()
             symbols.forEach { values[it]?.let(::publish) }
         }
     }
@@ -112,7 +106,6 @@ class MarketClient(
         if (stopped || ticker.symbol !in symbols) return
         values[ticker.symbol] = ticker
         if (ticker.last.isFinite()) recent[ticker.symbol] = ticker
-        pending[ticker.symbol] = ticker
-        if (!scheduled) { scheduled = true; main.postDelayed(flush, 50) }
+        publisher.submit(ticker)
     }
 }

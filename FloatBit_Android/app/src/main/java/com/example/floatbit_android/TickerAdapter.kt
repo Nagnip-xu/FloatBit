@@ -34,7 +34,11 @@ class TickerAdapter(
     fun updateTicker(t: Ticker) {
         val idx = items.indexOfFirst { it.symbol == t.symbol }
         if (idx >= 0) {
+            val old = items[idx]
             items[idx] = t
+            if (old.formatPrice() == t.formatPrice() && old.formatChange() == t.formatChange() &&
+                old.error == t.error && old.source == t.source &&
+                (old.changePct >= 0) == (t.changePct >= 0)) return
             notifyItemChanged(idx, PAYLOAD_PRICE)
         }
     }

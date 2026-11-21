@@ -229,11 +229,13 @@ class FloatingService : Service() {
         val rv = rows[t.symbol] ?: return
         rv.price.alpha = if (t.source == "cached") 0.55f else 1f
         rv.price.contentDescription = "${t.formatPrice()}，${t.source}"
-        rv.price.text = if (t.last.isNaN()) t.error ?: "…" else t.formatPrice()
-        rv.change.text = if (t.last.isNaN()) "" else t.formatChange()
+        val price = if (t.last.isNaN()) t.error ?: "…" else t.formatPrice()
+        val change = if (t.last.isNaN()) "" else t.formatChange()
+        if (rv.price.text.toString() != price) rv.price.text = price
+        if (rv.change.text.toString() != change) rv.change.text = change
         val up = t.changePct >= 0
         val color = if (up) (if (redUp) red else green) else (if (redUp) green else red)
-        rv.change.setTextColor(color)
+        if (rv.change.currentTextColor != color) rv.change.setTextColor(color)
     }
 
     private fun enableDrag(view: View) {
