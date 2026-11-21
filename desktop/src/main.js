@@ -4,6 +4,7 @@ const fs = require('fs');
 const markets = require('./markets');
 const { ContractNetwork } = require('./market-network');
 const { LiveMarket, mergeEvent, mergeSnapshot } = require('./live-market');
+const { TickerPublisher } = require('./ticker-publisher');
 const network = new ContractNetwork();
 
 // ---------- 配置持久化 ----------
@@ -146,22 +147,23 @@ async function getDayOpen(symbol) {
 
 // 价格先显示，日开盘和走势图独立加载，不阻塞首价。
 const tickerCache = {};
-let wsPushTimer = null;
 let marketStatus = 'connecting';
 let fallbackTimer = null;
 const snapshotRequests = new Map();
 function currentTickers() {
   return config.symbols.map(symbol => tickerCache[symbol] || { symbol, ok: false, error: '连接中' });
 }
-function scheduleTickerPush() {
-  if (wsPushTimer) return;
-  wsPushTimer = setTimeout(() => {
-    wsPushTimer = null;
-    for (const win of [mainWindow, panelWindow]) if (win && !win.isDestroyed()) {
-      win.webContents.send('tickers-update', currentTickers());
-      win.webContents.send('market-status', marketStatus);
-    }
-  }, 50);
+const tickerPublisher = new TickerPublisher(() => {
+  const tickers = currentTickers();
+  for (const win of [mainWindow, panelWindow]) if (win && !win.isDestroyed()) {
+    win.webContents.send('tickers-update', tickers);
+  }
+});
+function scheduleTickerPush() { tickerPublisher.schedule(); }
+function publishMarketStatus() {
+  for (const win of [mainWindow, panelWindow]) if (win && !win.isDestroyed()) {
+    win.webContents.send('market-status', marketStatus);
+  }
 }
 function dayOpenFor(symbol) {
   return dayOpenCache[symbol]?.dayStart === utcDayStart() ? dayOpenCache[symbol].open : null;
@@ -197,7 +199,7 @@ function fetchAll() {
     || Date.now() - tickerCache[s].receivedAt > 15000).map(fetchTicker));
 }
 const live = new LiveMarket({
-  onStatus(status) { if (marketStatus !== status) { marketStatus = status; scheduleTickerPush(); } },
+  onStatus(status) { if (marketStatus !== status) { marketStatus = status; publishMarketStatus(); } },
   onData(d) {
     const symbol = markets.id(d.s);
     if (!config.symbols.includes(symbol)) return;
@@ -577,4 +579,4 @@ if (!gotLock) {
   });
 }
 
-app.on('before-quit', () => { live.stop(); clearTimeout(wsPushTimer); clearInterval(fallbackTimer); });
+app.on('before-quit', () => { live.stop(); tickerPublisher.stop(); clearInterval(fallbackTimer); });

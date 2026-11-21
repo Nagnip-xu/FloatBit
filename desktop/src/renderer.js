@@ -7,7 +7,6 @@ const els = {
 };
 
 let config = null;
-let lastPrices = {}; // 记录上次价格用于闪烁判断
 
 // ---------- 工具 ----------
 function coinName(symbol) {
@@ -124,17 +123,14 @@ function render(tickers) {
     const price = row.querySelector('.price');
     const change = row.querySelector('.chg');
     price.classList.toggle('err', !t.ok);
-    price.textContent = t.ok ? formatPrice(t.last) : t.error || '连接中';
+    const priceText = t.ok ? formatPrice(t.last) : t.error || '连接中';
+    if (price.textContent !== priceText) price.textContent = priceText;
     price.title = t.source === 'live' ? '合约实时成交' : t.ok ? 'REST 快照，等待实时推送' : price.textContent;
     if (t.ok) {
-      const prev = lastPrices[t.symbol];
-      if (prev !== undefined && prev !== t.last) {
-        price.animate([{ color: t.last > prev ? 'var(--up)' : 'var(--down)' }, { color: 'var(--text)' }], { duration: 250 });
-      }
-      lastPrices[t.symbol] = t.last;
       if (isFinite(t.changePct)) changeMap[t.symbol] = t.changePct;
     }
-    change.textContent = t.ok ? formatPct(t.changePct) : '';
+    const changeText = t.ok ? formatPct(t.changePct) : '';
+    if (change.textContent !== changeText) change.textContent = changeText;
     change.className = 'chg ' + (t.changePct >= 0 ? 'up' : 'down');
   }
   if (!tickers.length) els.list.innerHTML = '<div class="loading">点击 ⚙ 添加币种</div>';
@@ -157,9 +153,9 @@ async function initialFetch() {
   try {
     const tickers = await api.getTickers();
     render(tickers);
-    setStatus(tickers.some((t) => t.ok));
+    setStatus();
   } catch (e) {
-    setStatus(false);
+    setStatus();
   }
 }
 
@@ -174,15 +170,14 @@ document.getElementById('btn-close').addEventListener('click', () => api.hide())
 api.onConfigChanged((cfg) => {
   config = cfg;
   applyColorScheme(config.colorScheme);
-  lastPrices = {};
   initialFetch();
   refreshKlines();
 });
 
-// WebSocket 实时推送 -> 直接渲染 (丝滑跳动)
+// 后台持续收行情，界面约每秒显示一次最新值。
 api.onTickersUpdate((list) => {
   render(list);
-  setStatus(list.some((t) => t.ok));
+  setStatus();
 });
 
 // ---------- 初始化 ----------

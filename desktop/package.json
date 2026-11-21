@@ -1,6 +1,6 @@
 {
   "name": "floatbit",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "FloatBit - 实时加密货币价格悬浮窗 (BTC / ETH 等)",
   "main": "src/main.js",
   "author": "Nagnip <xu814667@gmail.com>",

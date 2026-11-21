@@ -184,18 +184,6 @@ html, body {
 .up { color: var(--up); }
 .down { color: var(--down); }
 
-.row.flash-up .price { animation: flashUp 0.6s ease; }
-.row.flash-down .price { animation: flashDown 0.6s ease; }
-
-@keyframes flashUp {
-  0% { color: var(--up); }
-  100% { color: var(--text); }
-}
-@keyframes flashDown {
-  0% { color: var(--down); }
-  100% { color: var(--text); }
-}
-
 .row .price.err {
   font-size: 11px;
   color: var(--text-dim);

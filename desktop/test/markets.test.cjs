@@ -47,6 +47,7 @@ function harness() {
   const context = vm.createContext({
     require: (name) => name === 'electron' ? electron : name === 'ws' ? Socket : name === './markets' ? markets :
       name === './market-network' ? { ContractNetwork } : name === './live-market' ? { ...realLive, LiveMarket } :
+      name === './ticker-publisher' ? { TickerPublisher: class { schedule() {} stop() {} } } :
       name === 'fs' ? { readFileSync() { throw new Error('No config'); }, writeFileSync() {} } : require(name),
     __dirname: path.join(__dirname, '../src'), console: { error() {} },
     setTimeout: () => 1, clearTimeout() {}, setInterval() {}, clearInterval() {}

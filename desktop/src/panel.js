@@ -263,9 +263,14 @@ function applyPrices(tickers) {
         : t.last.toPrecision(4);
       const up = t.changePct >= 0;
       const sign = up ? '+' : '';
-      el.innerHTML = `${price} <span style="color:${up ? 'var(--up)' : 'var(--down)'};font-size:11px">${Number.isFinite(t.changePct) ? sign + t.changePct.toFixed(2) + '%' : ''}</span>`;
+      const displayKey = `${price}|${up}|${Number.isFinite(t.changePct) ? t.changePct.toFixed(2) : ''}`;
+      if (el.dataset.displayKey !== displayKey) {
+        el.innerHTML = `${price} <span style="color:${up ? 'var(--up)' : 'var(--down)'};font-size:11px">${Number.isFinite(t.changePct) ? sign + t.changePct.toFixed(2) + '%' : ''}</span>`;
+        el.dataset.displayKey = displayKey;
+      }
       el.style.color = 'var(--text)';
     } else {
+      delete el.dataset.displayKey;
       el.textContent = t.error || '错误';
       el.title = t.error || '错误';
     }
