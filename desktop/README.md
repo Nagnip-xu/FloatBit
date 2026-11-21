@@ -5,7 +5,7 @@
 ## 功能
 
 - 🪟 **悬浮窗**：无边框、半透明、始终置顶，可自由拖动并记忆位置
-- ⚡ **实时价格**：基于 WebSocket，币安行情变动即时推送，成交价实时更新，界面每 50ms 合并显示
+- ⚡ **实时价格**：基于 WebSocket，币安行情变动即时推送，后台实时接收成交，界面约每秒显示一次最新价，不频繁闪色
 - 📈 **走势小图**：每个币种迷你 K线 走势图，颜色跟随当日涨跌
 - 🔍 **主面板**：搜索全部交易对、热门币种一键添加、自选管理
 - 🎨 **主题与配色**：明暗双主题；绿涨红跌 / 红涨绿跌可切换
@@ -58,6 +58,8 @@ wss://fstream.binance.me/market/stream?streams=btcusdt@aggTrade/btcusdt@ticker/e
 ```
 同时连接 `.com` 与 `.me` 合约通道，以首条有效数据选路。成交驱动最新价，ticker 补充统计，断线自动重连。默认自动直连，不要求代理。
 
+1.2.1 将悬浮窗和主面板的显示合并间隔调整为 1 秒：首个价格立即显示，密集成交只显示当时最新值，移除频繁变色动画；相同的价格和涨跌幅不重复改写。底层成交推送持续接收。
+
 **走势图 K线 / 交易对列表 / 启动初值 — REST（辅）**
 ```
 GET https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=30
@@ -80,3 +82,7 @@ GET https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT
 ## 安全提示
 
 本应用仅使用**公共行情接口**，不需要也不会读取任何 API Key / Secret。
+
+## 1.2.1 验证
+
+[Windows 构建与安装验证](https://github.com/Nagnip-xu/FloatBit/actions/runs/44932953634) 已通过：15 项自动测试，以及静默安装、覆盖升级、启动和卸载。Electron 隐藏测试窗口持续接收 36 次示例行情变化，画面只更新 3 次，相邻更新约 1 秒，活动动画数为 0。

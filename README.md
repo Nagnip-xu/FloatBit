@@ -16,6 +16,10 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 行情来自币安 USDⓈ-M 合约公共接口，**无需账户登录或 API 密钥**。项目包含 Electron 桌面端、Kotlin 原生安卓端，以及通过 GitHub Pages 发布的中文官网。
 
+## Windows 1.2.1 更新
+
+电脑版悬浮窗和主面板调整为约 **每秒显示一次最新价格**，首个价格立即显示；后台继续实时接收合约成交。移除价格反复闪色动画，相同的显示值不重复改写，行情密集时也保持平稳。
+
 ## Android 1.2.1 更新
 
 修复手机悬浮窗价格显示为 `608…`、`749…` 的问题：价格列按完整内容计算宽度，涨跌幅列也可以随内容伸展；保留紧凑尺寸、单行显示及原有缩小/收起操作。增加 MU/ZEC、带千分位的长价格、行情到达后的重新测量和系统大字号布局回归验证。[构建与 19 项测试均通过](https://github.com/Nagnip-xu/FloatBit/actions/runs/44786640182)。
@@ -86,10 +90,10 @@ FloatBit 是一款面向 **Windows 和 Android** 的轻量行情工具。把 BTC
 
 | 平台 | 安装包 | 当前版本 | 大小与要求 |
 | --- | --- | --- | --- |
-| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.2.0.exe) | 1.2.0 | 约 75 MiB；Windows 10 / 11，x64 |
+| Windows | [下载 EXE 安装程序](https://nagnip-xu.github.io/FloatBit/FloatBit-Setup-1.2.1.exe) | 1.2.1 | 约 75 MiB；Windows 10 / 11，x64 |
 | Android | [下载 APK](https://nagnip-xu.github.io/FloatBit/FloatBit-Android.apk?v=1.2.1) | 1.2.1（versionCode 5） | 约 6.2 MiB；Android 7.0 / API 24 及以上 |
 
-Android 当前提供 **debug 构建**。1.2.1 沿用官网 1.1.0 / 1.1.1 / 1.2.0 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。当前桌面端为 1.2.0，安卓端为 1.2.1。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
+Android 当前提供 **debug 构建**。1.2.1 沿用官网 1.1.0 / 1.1.1 / 1.2.0 的签名，可覆盖安装并保留自选；从原 1.0 版升级仍需先记下自选和设置，卸载旧版后再安装，卸载会清除旧应用的本地数据。当前桌面端和安卓端均为 1.2.1。仓库内的 `website/` 同时保存这两个官网分发文件；文件校验值见 [SHA256SUMS.txt](website/SHA256SUMS.txt)。
 
 **Windows 使用：**
 
@@ -194,7 +198,7 @@ python -m http.server 8000 --directory website
 
 - **数据来自哪里？** 价格主要来自币安合约公共 WebSocket；K 线、交易对等通过 REST 获取。接口说明见 [币安行情接口文档](docs/binance-api.md)。官网演示采用 REST 定时刷新。
 - **必须开代理吗？旧版为什么可以直连？** 默认自动直连，不要求先开代理。旧版使用 `.binance.vision` 现货域名，切换合约后入口不同；1.2.0 在两端加入合约 WebSocket 备用通道与并行 CDN 请求。实时由成交推送驱动；断线时的 REST 快照只作补救。详见 [网络说明](docs/android-network.md)。
-- **50ms 刷新是不是固定延迟？** 这是界面合并绘制的间隔。收到成交后显示最新价格，实际延迟还受网络、交易所推送和成交频率影响；没有成交时价格自然不会变化。
+- **价格显示多久更新？** Windows 1.2.1 在后台持续接收成交，界面约每秒显示一次最新值，去掉频繁闪色；Android 保留 50ms 合并显示。两者均使用实时推送，实际延迟还受网络和成交频率影响，没有新成交时不会凭空跳价。
 - **安卓悬浮窗没有出现？** 确认已开启「显示在其他应用上层」权限；后台运行还可能受手机系统省电设置影响。
 - **为什么克隆后没有依赖或构建目录？** `node_modules/`、Gradle 缓存和编译输出由 `.gitignore` 排除，按上面的步骤重新安装或构建即可。
 - **需要账户或交易密钥吗？** 不需要。本项目展示公共行情，不提供下单、交易或资产托管功能。

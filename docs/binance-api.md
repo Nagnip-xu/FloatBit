@@ -35,7 +35,7 @@ FloatBit 1.1.0 起，Windows、Android、官网演示与共享模块统一使用
 wss://fstream.binance.me/market/stream?streams=muusdt@aggTrade/muusdt@ticker/sndkusdt@aggTrade/sndkusdt@ticker
 ```
 
-消息为 `{ "stream": "...", "data": { ... } }`。`aggTrade` 使用 `s`（合约）、`p`（成交价）、`T`（成交时间）；`24hrTicker` 使用 `c`、`o`、`h`、`l`、`C` 等。按交易所时间合并，慢 ticker 不会覆盖新成交，但仍可补统计。界面每 50ms 合并更新。
+消息为 `{ "stream": "...", "data": { ... } }`。`aggTrade` 使用 `s`（合约）、`p`（成交价）、`T`（成交时间）；`24hrTicker` 使用 `c`、`o`、`h`、`l`、`C` 等。按交易所时间合并，慢 ticker 不会覆盖新成交，但仍可补统计。Windows 1.2.1 的界面约每秒显示一次最新值，移除价格闪色；Android 保留 50ms 合并更新。底层推送均连续接收，显示节奏不等于请求频率。
 
 启动快照与 WebSocket 并行，不等待日线。连接故障自动重连，5 秒 REST 只用于补齐首值/断线/过期数据，不是实时价格的刷新周期。搜索列表每分钟刷新、迷你走势图每 30 秒刷新，与价格推送互不阻塞。
 
